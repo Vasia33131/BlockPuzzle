@@ -1,0 +1,3 @@
+﻿Build path: C:/Users/diman/Desktop/1
+Build number: 5
+PluginYG version: 2.0092

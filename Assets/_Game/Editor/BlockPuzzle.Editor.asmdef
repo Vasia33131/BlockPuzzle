@@ -1,0 +1,26 @@
+{
+    "name": "BlockPuzzle.Editor",
+    "rootNamespace": "BlockPuzzle.EditorTools",
+    "references": [
+        "BlockPuzzle.Core",
+        "BlockPuzzle.Gameplay",
+        "BlockPuzzle.Managers",
+        "BlockPuzzle.UI",
+        "BlockPuzzle.Bootstrap",
+        "Unity.TextMeshPro",
+        "Unity.TextMeshPro.Editor",
+        "UnityEngine.UI",
+        "UnityEditor.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
