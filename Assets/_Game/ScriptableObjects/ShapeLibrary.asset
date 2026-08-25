@@ -1,0 +1,640 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8809871816127447728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Square 2x2
+  m_EditorClassIdentifier: 
+  displayName: Square 2x2
+  color: {r: 0.9764706, g: 0.90588236, b: 0.62352943, a: 1}
+  paletteIndex: 4
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  weight: 1
+--- !u!114 &-8577093619198603474
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: L Left
+  m_EditorClassIdentifier: 
+  displayName: L Left
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 2}
+  - {x: 2, y: 2}
+  - {x: 0, y: 2}
+  weight: 0.7
+--- !u!114 &-8208646162879474147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Plus
+  m_EditorClassIdentifier: 
+  displayName: Plus
+  color: {r: 0.68235296, g: 0.8392157, b: 0.94509804, a: 1}
+  paletteIndex: 1
+  usesStartingColor: 0
+  cells:
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 2, y: 1}
+  - {x: 1, y: 2}
+  weight: 0.55
+--- !u!114 &-8167378422682470862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Domino H
+  m_EditorClassIdentifier: 
+  displayName: Domino H
+  color: {r: 0.6627451, g: 0.8745098, b: 0.7490196, a: 1}
+  paletteIndex: 3
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  weight: 1.2
+--- !u!114 &-7243606430010620571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: T Down
+  m_EditorClassIdentifier: 
+  displayName: T Down
+  color: {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
+  paletteIndex: 7
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 1, y: 1}
+  weight: 0.7
+--- !u!114 &-5332500219588805775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Rect 2x3
+  m_EditorClassIdentifier: 
+  displayName: Rect 2x3
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 0, y: 2}
+  - {x: 1, y: 2}
+  weight: 0.5
+--- !u!114 &-5201023884666964714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line5 V
+  m_EditorClassIdentifier: 
+  displayName: Line5 V
+  color: {r: 0.68235296, g: 0.8392157, b: 0.94509804, a: 1}
+  paletteIndex: 1
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
+  - {x: 0, y: 3}
+  - {x: 0, y: 4}
+  weight: 0.5
+--- !u!114 &-3784431983815368633
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: U
+  m_EditorClassIdentifier: 
+  displayName: U
+  color: {r: 0.9764706, g: 0.90588236, b: 0.62352943, a: 1}
+  paletteIndex: 4
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 2, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 2, y: 1}
+  weight: 0.65
+--- !u!114 &-3087512001277321901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Square 3x3
+  m_EditorClassIdentifier: 
+  displayName: Square 3x3
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 2, y: 1}
+  - {x: 0, y: 2}
+  - {x: 1, y: 2}
+  - {x: 2, y: 2}
+  weight: 0.35
+--- !u!114 &-1852586379372614366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Domino V
+  m_EditorClassIdentifier: 
+  displayName: Domino V
+  color: {r: 0.6627451, g: 0.8745098, b: 0.7490196, a: 1}
+  paletteIndex: 3
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  weight: 1.2
+--- !u!114 &-1590878503385637356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: L Down
+  m_EditorClassIdentifier: 
+  displayName: L Down
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
+  weight: 0.7
+--- !u!114 &-1528288731403469326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line4 V
+  m_EditorClassIdentifier: 
+  displayName: Line4 V
+  color: {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
+  paletteIndex: 7
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
+  - {x: 0, y: 3}
+  weight: 0.85
+--- !u!114 &-1474908283575864381
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: T Right
+  m_EditorClassIdentifier: 
+  displayName: T Right
+  color: {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
+  paletteIndex: 7
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 0, y: 2}
+  weight: 0.7
+--- !u!114 &-1200184627362467050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Corner TR
+  m_EditorClassIdentifier: 
+  displayName: Corner TR
+  color: {r: 0.9607843, g: 0.7176471, b: 0.69411767, a: 1}
+  paletteIndex: 6
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 1, y: 1}
+  weight: 1
+--- !u!114 &-59890045056884049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: S
+  m_EditorClassIdentifier: 
+  displayName: S
+  color: {r: 0.6392157, g: 0.89411765, b: 0.84313726, a: 1}
+  paletteIndex: 2
+  usesStartingColor: 0
+  cells:
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  weight: 0.6
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a5ab0a8e79218047bda657af5a27263, type: 3}
+  m_Name: ShapeLibrary
+  m_EditorClassIdentifier: 
+  shapes:
+  - {fileID: 6553801639163540339}
+  - {fileID: -8167378422682470862}
+  - {fileID: -1852586379372614366}
+  - {fileID: 3645079642490436832}
+  - {fileID: 4966984201109158777}
+  - {fileID: 6582090774499641761}
+  - {fileID: -1528288731403469326}
+  - {fileID: 6681486520994024185}
+  - {fileID: -5201023884666964714}
+  - {fileID: -8809871816127447728}
+  - {fileID: -3087512001277321901}
+  - {fileID: 474863972839342053}
+  - {fileID: -1200184627362467050}
+  - {fileID: 5282765993262197687}
+  - {fileID: 5481015847401404785}
+  - {fileID: 3021921091702155443}
+  - {fileID: 8256667667974478589}
+  - {fileID: -1590878503385637356}
+  - {fileID: -8577093619198603474}
+  - {fileID: -7243606430010620571}
+  - {fileID: 1284592310442096804}
+  - {fileID: -59890045056884049}
+  - {fileID: 3157515325705098063}
+  pack1:
+  - {fileID: -8208646162879474147}
+  - {fileID: -3784431983815368633}
+  - {fileID: -1474908283575864381}
+  - {fileID: -5332500219588805775}
+  catalogVersion: 3
+--- !u!114 &474863972839342053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Corner TL
+  m_EditorClassIdentifier: 
+  displayName: Corner TL
+  color: {r: 0.9607843, g: 0.7176471, b: 0.69411767, a: 1}
+  paletteIndex: 6
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  weight: 1
+--- !u!114 &1284592310442096804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: T Up
+  m_EditorClassIdentifier: 
+  displayName: T Up
+  color: {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
+  paletteIndex: 7
+  usesStartingColor: 0
+  cells:
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  - {x: 2, y: 1}
+  weight: 0.7
+--- !u!114 &3021921091702155443
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: L Up
+  m_EditorClassIdentifier: 
+  displayName: L Up
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
+  - {x: 1, y: 2}
+  - {x: 2, y: 2}
+  weight: 0.7
+--- !u!114 &3157515325705098063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Z
+  m_EditorClassIdentifier: 
+  displayName: Z
+  color: {r: 0.6392157, g: 0.89411765, b: 0.84313726, a: 1}
+  paletteIndex: 2
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 1, y: 1}
+  - {x: 2, y: 1}
+  weight: 0.6
+--- !u!114 &3645079642490436832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line3 H
+  m_EditorClassIdentifier: 
+  displayName: Line3 H
+  color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
+  paletteIndex: 0
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  weight: 1.1
+--- !u!114 &4966984201109158777
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line3 V
+  m_EditorClassIdentifier: 
+  displayName: Line3 V
+  color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
+  paletteIndex: 0
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
+  weight: 1.1
+--- !u!114 &5282765993262197687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Corner BR
+  m_EditorClassIdentifier: 
+  displayName: Corner BR
+  color: {r: 0.9607843, g: 0.7176471, b: 0.69411767, a: 1}
+  paletteIndex: 6
+  usesStartingColor: 0
+  cells:
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  weight: 1
+--- !u!114 &5481015847401404785
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Corner BL
+  m_EditorClassIdentifier: 
+  displayName: Corner BL
+  color: {r: 0.9607843, g: 0.7176471, b: 0.69411767, a: 1}
+  paletteIndex: 6
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
+  weight: 1
+--- !u!114 &6553801639163540339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Single
+  m_EditorClassIdentifier: 
+  displayName: Single
+  color: {r: 0.6392157, g: 0.89411765, b: 0.84313726, a: 1}
+  paletteIndex: 2
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  weight: 1.1
+--- !u!114 &6582090774499641761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line4 H
+  m_EditorClassIdentifier: 
+  displayName: Line4 H
+  color: {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
+  paletteIndex: 7
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 3, y: 0}
+  weight: 0.85
+--- !u!114 &6681486520994024185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: Line5 H
+  m_EditorClassIdentifier: 
+  displayName: Line5 H
+  color: {r: 0.68235296, g: 0.8392157, b: 0.94509804, a: 1}
+  paletteIndex: 1
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 3, y: 0}
+  - {x: 4, y: 0}
+  weight: 0.5
+--- !u!114 &8256667667974478589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804a160fdcd2a804bafcccbe2d5fe763, type: 3}
+  m_Name: L Right
+  m_EditorClassIdentifier: 
+  displayName: L Right
+  color: {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
+  paletteIndex: 5
+  usesStartingColor: 0
+  cells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 2, y: 1}
+  - {x: 2, y: 2}
+  weight: 0.7
