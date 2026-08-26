@@ -13,13 +13,17 @@ namespace BlockPuzzle.UI
     /// classic palette <see cref="ThemeConfig.DefaultId"/>, the two paid palettes
     /// <see cref="ThemeConfig.OceanId"/> and <see cref="ThemeConfig.CandyId"/>,
     /// and the extra-figure pack <see cref="PlayerProgress.ShapesPack1Id"/>.
-    /// Buy labels stay "Покупка" until platform code supplies the catalog price from the SDK.
+    ///
+    /// Prices come from the payments catalog only (Yandex 1.13.2 / 1.13.4): until the
+    /// SDK answers, a product shows no price and cannot be bought. There is no
+    /// hand-written amount and no placeholder that could pass for one.
     /// </summary>
     public class ShopPanel : MonoBehaviour
     {
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
-        private const string FallbackPriceText = "Покупка";
+        private const string CurrencyIconName = "CurrencyIcon";
+        private const float CurrencyIconGap = 6f;
         private const string BuyLabel = "Купить";
         private const string OwnedLabel = "Куплено";
         private const string SelectLabel = "Выбрать";
@@ -39,6 +43,9 @@ namespace BlockPuzzle.UI
         private readonly List<ThemeCard> themeCards = new List<ThemeCard>(3);
         private ThemeCard packCard;
         private bool visible;
+
+        /// <summary>True while the shop covers the board. Platform code stops GameplayAPI on it.</summary>
+        public bool IsOpen => visible;
 
         /// <summary>Raised when the player taps Buy on the no-ads card. Platform code starts payment.</summary>
         public event Action NoAdsBuyRequested;
@@ -106,12 +113,12 @@ namespace BlockPuzzle.UI
         }
 
         /// <summary>
-        /// Catalog price string from the payments SDK. Empty keeps the "Покупка" placeholder.
-        /// Never pass a hand-written ruble amount — only what the SDK already returned.
+        /// Price of a product exactly as the payments catalog returned it (digits plus
+        /// the portal currency). Pass null or empty when the product is missing from the
+        /// catalog or the catalog has not arrived yet: the card then shows no price and
+        /// its Buy button stays off.
         /// </summary>
-        public void SetCatalogPrice(string price) => SetProductPrice(NoAdsProductId, price);
-
-        public void SetProductPrice(string productId, string price)
+        public void SetProductOffer(string productId, string price)
         {
             if (string.IsNullOrEmpty(productId))
             {
@@ -122,23 +129,23 @@ namespace BlockPuzzle.UI
             RefreshPurchaseState();
         }
 
+        /// <summary>
+        /// Currency icon slot next to the product price, created on first request.
+        /// Platform code loads <c>purchase.currencyImageURL</c> into it.
+        /// </summary>
+        public Image ResolveCurrencyIcon(string productId)
+        {
+            ResolveRefs();
+            return EnsureCurrencyIcon(PriceLabelFor(productId));
+        }
+
         public void RefreshPurchaseState()
         {
             ResolveRefs();
 
             bool owned = PlayerProgress.AdsRemoved;
-            if (priceLabel != null)
-            {
-                if (owned)
-                {
-                    priceLabel.gameObject.SetActive(false);
-                }
-                else
-                {
-                    priceLabel.gameObject.SetActive(true);
-                    priceLabel.text = PriceText(NoAdsProductId);
-                }
-            }
+            bool sellable = !owned && HasOffer(NoAdsProductId);
+            ApplyPrice(priceLabel, sellable ? PriceText(NoAdsProductId) : null);
 
             if (buyLabel == null && buyButton != null)
             {
@@ -152,7 +159,7 @@ namespace BlockPuzzle.UI
 
             if (buyButton != null)
             {
-                buyButton.interactable = !owned;
+                buyButton.interactable = sellable;
             }
 
             for (int i = 0; i < themeCards.Count; i++)
@@ -203,7 +210,7 @@ namespace BlockPuzzle.UI
 
         private void HandleBuyClicked()
         {
-            if (PlayerProgress.AdsRemoved)
+            if (PlayerProgress.AdsRemoved || !HasOffer(NoAdsProductId))
             {
                 return;
             }
@@ -226,12 +233,17 @@ namespace BlockPuzzle.UI
                 return;
             }
 
+            if (!HasOffer(themeId))
+            {
+                return;
+            }
+
             ThemeBuyRequested?.Invoke(themeId);
         }
 
         private void HandlePackClicked(string packId)
         {
-            if (string.IsNullOrEmpty(packId) || PlayerProgress.OwnsPack(packId))
+            if (string.IsNullOrEmpty(packId) || PlayerProgress.OwnsPack(packId) || !HasOffer(packId))
             {
                 return;
             }
@@ -456,19 +468,9 @@ namespace BlockPuzzle.UI
 
             bool owned = PlayerProgress.OwnsTheme(themeCard.Id);
             bool selected = owned && PlayerProgress.ThemeId == themeCard.Id;
+            bool sellable = !owned && HasOffer(themeCard.Id);
 
-            if (themeCard.Price != null)
-            {
-                if (owned)
-                {
-                    themeCard.Price.gameObject.SetActive(false);
-                }
-                else
-                {
-                    themeCard.Price.gameObject.SetActive(true);
-                    themeCard.Price.text = PriceText(themeCard.Id);
-                }
-            }
+            ApplyPrice(themeCard.Price, sellable ? PriceText(themeCard.Id) : null);
 
             if (themeCard.ActionLabel != null)
             {
@@ -484,7 +486,7 @@ namespace BlockPuzzle.UI
 
             if (themeCard.ActionButton != null)
             {
-                themeCard.ActionButton.interactable = !owned || !selected;
+                themeCard.ActionButton.interactable = owned ? !selected : sellable;
             }
         }
 
@@ -545,19 +547,16 @@ namespace BlockPuzzle.UI
             }
 
             bool owned = PlayerProgress.OwnsPack(packCard.Id);
+            bool sellable = !owned && HasOffer(packCard.Id);
 
-            if (packCard.Price != null)
+            // A pack that the catalog does not list is not on sale at all: hide the card
+            // instead of showing an offer the player cannot complete (Yandex 1.13.4).
+            if (packCard.Root != null)
             {
-                if (owned)
-                {
-                    packCard.Price.gameObject.SetActive(false);
-                }
-                else
-                {
-                    packCard.Price.gameObject.SetActive(true);
-                    packCard.Price.text = PriceText(packCard.Id);
-                }
+                packCard.Root.gameObject.SetActive(owned || sellable);
             }
+
+            ApplyPrice(packCard.Price, sellable ? PriceText(packCard.Id) : null);
 
             if (packCard.ActionLabel != null)
             {
@@ -566,18 +565,112 @@ namespace BlockPuzzle.UI
 
             if (packCard.ActionButton != null)
             {
-                packCard.ActionButton.interactable = !owned;
+                packCard.ActionButton.interactable = sellable;
             }
+        }
+
+        /// <summary>True once the payments catalog returned a price for the product.</summary>
+        private bool HasOffer(string productId)
+        {
+            return !string.IsNullOrEmpty(productId)
+                && catalogPrices.TryGetValue(productId, out string price)
+                && !string.IsNullOrEmpty(price);
         }
 
         private string PriceText(string productId)
         {
-            if (catalogPrices.TryGetValue(productId, out string price) && !string.IsNullOrEmpty(price))
+            return catalogPrices.TryGetValue(productId, out string price) ? price : null;
+        }
+
+        /// <summary>
+        /// Shows the catalog price, or hides the whole label — with its currency icon —
+        /// when there is nothing legitimate to show.
+        /// </summary>
+        private static void ApplyPrice(TMP_Text label, string price)
+        {
+            if (label == null)
             {
-                return price;
+                return;
             }
 
-            return FallbackPriceText;
+            if (string.IsNullOrEmpty(price))
+            {
+                label.gameObject.SetActive(false);
+                return;
+            }
+
+            label.gameObject.SetActive(true);
+            label.text = price;
+            LayoutCurrencyIcon(label);
+        }
+
+        private TMP_Text PriceLabelFor(string productId)
+        {
+            if (string.IsNullOrEmpty(productId))
+            {
+                return null;
+            }
+
+            if (productId == NoAdsProductId)
+            {
+                return priceLabel;
+            }
+
+            for (int i = 0; i < themeCards.Count; i++)
+            {
+                if (themeCards[i].Id == productId)
+                {
+                    return themeCards[i].Price;
+                }
+            }
+
+            return packCard != null && packCard.Id == productId ? packCard.Price : null;
+        }
+
+        private static Image EnsureCurrencyIcon(TMP_Text label)
+        {
+            if (label == null)
+            {
+                return null;
+            }
+
+            Transform existing = label.transform.Find(CurrencyIconName);
+            if (existing != null)
+            {
+                return existing.GetComponent<Image>();
+            }
+
+            Image icon = UIFactory.CreateImage(CurrencyIconName, label.transform, Color.white, rounded: false);
+            icon.raycastTarget = false;
+            icon.preserveAspect = true;
+            // Stays off until the platform layer has the texture from currencyImageURL.
+            icon.enabled = false;
+            LayoutCurrencyIcon(label);
+            return icon;
+        }
+
+        /// <summary>Keeps the currency icon glued to the right edge of the price text.</summary>
+        private static void LayoutCurrencyIcon(TMP_Text label)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            RectTransform icon = label.transform.Find(CurrencyIconName) as RectTransform;
+            if (icon == null)
+            {
+                return;
+            }
+
+            float size = label.fontSize;
+            float textWidth = label.GetPreferredValues(label.text).x;
+            UIFactory.Anchor(
+                icon,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, 0.5f),
+                new Vector2(textWidth * 0.5f + CurrencyIconGap, 0f),
+                new Vector2(size, size));
         }
 
         private sealed class ThemeCard

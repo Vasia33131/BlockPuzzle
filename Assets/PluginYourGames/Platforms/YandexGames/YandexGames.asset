@@ -15,7 +15,7 @@ MonoBehaviour:
   nameFull: YandexGamesPlatform
   projectSettings:
     showFirstAdv: 1
-    interAdvInterval: 60
+    interAdvInterval: 120
     postponeCallByFail: 0
     useYandexMetrica: 1
     metricaCounterID: 99005242

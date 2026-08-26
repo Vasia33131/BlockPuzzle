@@ -17,10 +17,10 @@ namespace BlockPuzzle.Bootstrap
     /// </summary>
     public static class GameSceneFactory
     {
-        private const float TopPanelHeight = 84f;
+        private const float TopPanelHeight = 112f;
         private const float ScreenSideMargin = 16f;
         private const float ScreenTopMargin = 12f;
-        private const float PauseButtonSize = 56f;
+        private const float PauseButtonSize = 92f;
         private const float HudButtonGap = 10f;
         private const float ScoreSectionWidth = 320f;
         private const float BestSectionWidth = 280f;
@@ -74,6 +74,7 @@ namespace BlockPuzzle.Bootstrap
             public BoosterController BoosterController;
             public HudController Hud;
             public BoosterBar BoosterBar;
+            public BoosterConfirmPanel BoosterConfirmPanel;
             public GameOverPanel GameOverPanel;
             public PausePanel PausePanel;
             public ShopPanel ShopPanel;
@@ -174,7 +175,8 @@ namespace BlockPuzzle.Bootstrap
                 orientationHandler.RefreshNow();
             }
 
-            // Pause below shop, shop below game over: losing still overrides everything.
+            // Confirm below pause, pause below shop, shop below game over.
+            result.BoosterConfirmPanel = CreateBoosterConfirmPanel(canvasRect, result.GameManager);
             result.PausePanel = CreatePausePanel(
                 canvasRect, result.GameManager, pauseButton, prefabs != null ? prefabs.PausePanel : null);
             result.ShopPanel = CreateShopPanel(
@@ -194,7 +196,7 @@ namespace BlockPuzzle.Bootstrap
                 result.ScoreManager,
                 result.GameOverHandler,
                 result.AudioManager);
-            result.BoosterBar?.Bind(result.GameManager);
+            result.BoosterBar?.Bind(result.GameManager, result.BoosterConfirmPanel);
 
             return result;
         }
@@ -226,6 +228,33 @@ namespace BlockPuzzle.Bootstrap
 
             bar?.Bind(gameManager);
             return bar;
+        }
+
+        /// <summary>
+        /// Adds the rewarded-booster confirm overlay to a baked scene that predates it,
+        /// then wires it to the live <see cref="BoosterBar"/>.
+        /// </summary>
+        public static BoosterConfirmPanel EnsureBoosterConfirmPanel(RectTransform canvasRect, GameManager gameManager)
+        {
+            BoosterConfirmPanel existing = Object.FindObjectOfType<BoosterConfirmPanel>(true);
+            BoosterBar bar = Object.FindObjectOfType<BoosterBar>(true);
+            if (existing != null)
+            {
+                existing.Bind(gameManager);
+                PlaceConfirmBelowPause(existing);
+                bar?.Bind(gameManager, existing);
+                return existing;
+            }
+
+            if (canvasRect == null)
+            {
+                return null;
+            }
+
+            BoosterConfirmPanel panel = CreateBoosterConfirmPanel(canvasRect, gameManager);
+            PlaceConfirmBelowPause(panel);
+            bar?.Bind(gameManager, panel);
+            return panel;
         }
 
         /// <summary>Unbound pause overlay hierarchy, used when baking the PausePanel prefab.</summary>
@@ -300,6 +329,34 @@ namespace BlockPuzzle.Bootstrap
 
             int gameOverIndex = gameOver.transform.GetSiblingIndex();
             shop.transform.SetSiblingIndex(gameOverIndex);
+        }
+
+        private static void PlaceConfirmBelowPause(BoosterConfirmPanel panel)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            PausePanel pause = Object.FindObjectOfType<PausePanel>(true);
+            if (pause != null)
+            {
+                panel.transform.SetSiblingIndex(pause.transform.GetSiblingIndex());
+                return;
+            }
+
+            ShopPanel shop = Object.FindObjectOfType<ShopPanel>(true);
+            if (shop != null)
+            {
+                panel.transform.SetSiblingIndex(shop.transform.GetSiblingIndex());
+                return;
+            }
+
+            GameOverPanel gameOver = Object.FindObjectOfType<GameOverPanel>(true);
+            if (gameOver != null)
+            {
+                panel.transform.SetSiblingIndex(gameOver.transform.GetSiblingIndex());
+            }
         }
 
         /// <summary>Unbound game-over overlay hierarchy, used when baking the GameOverPanel prefab.</summary>
@@ -567,6 +624,118 @@ namespace BlockPuzzle.Bootstrap
             ButtonPressAnimator.Attach(button);
         }
 
+        private static BoosterConfirmPanel CreateBoosterConfirmPanel(RectTransform parent, GameManager gameManager)
+        {
+            RectTransform root = UIFactory.CreateRect(BoosterConfirmPanel.ObjectName, parent);
+            UIFactory.Stretch(root);
+
+            CanvasGroup group = root.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+
+            Image dim = UIFactory.CreateImage("Dim", root, new Color(0.03f, 0.03f, 0.08f, 0.78f), false);
+            UIFactory.Stretch(dim.rectTransform);
+
+            Image cardImage = UIFactory.CreateImage("Card", root, GameTheme.CardBackground);
+            RectTransform card = cardImage.rectTransform;
+            UIFactory.Anchor(
+                card,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(780f, 880f));
+
+            Image icon = UIFactory.CreateImage("Icon", card, Color.white, rounded: false);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            UIFactory.Anchor(
+                icon.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -40f),
+                new Vector2(152f, 152f));
+
+            TextMeshProUGUI title = UIFactory.CreateText(
+                "Title",
+                card,
+                "Отмена хода",
+                48f,
+                GameTheme.TextPrimary,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
+            UIFactory.Anchor(
+                title.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -210f),
+                new Vector2(700f, 70f));
+
+            TextMeshProUGUI body = UIFactory.CreateText(
+                "Body",
+                card,
+                "Вернёт последнюю поставленную фигуру на панель.",
+                32f,
+                GameTheme.TextPrimary,
+                TextAlignmentOptions.Center,
+                FontStyles.Normal);
+            body.enableWordWrapping = true;
+            UIFactory.Anchor(
+                body.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -290f),
+                new Vector2(680f, 140f));
+
+            TextMeshProUGUI warning = UIFactory.CreateText(
+                "Warning",
+                card,
+                "Бонус за просмотр рекламы",
+                28f,
+                GameTheme.TextSecondary,
+                TextAlignmentOptions.Center,
+                FontStyles.Normal);
+            warning.enableWordWrapping = true;
+            UIFactory.Anchor(
+                warning.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -440f),
+                new Vector2(680f, 70f));
+
+            Button watch = UIFactory.CreateButton(
+                "WatchButton",
+                card,
+                "Смотреть",
+                GameTheme.Accent,
+                GameTheme.FromHex("#1a1a2e"),
+                44f);
+            UIFactory.Anchor(
+                (RectTransform)watch.transform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, 190f),
+                new Vector2(620f, 130f));
+
+            Button cancel = UIFactory.CreateButton(
+                "CancelButton",
+                card,
+                "Отмена",
+                GameTheme.ButtonSecondary,
+                GameTheme.TextPrimary,
+                38f);
+            UIFactory.Anchor(
+                (RectTransform)cancel.transform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, 44f),
+                new Vector2(620f, 120f));
+
+            BoosterConfirmPanel panel = root.gameObject.AddComponent<BoosterConfirmPanel>();
+            panel.Bind(gameManager, group, card, icon, title, body, warning, watch, cancel);
+            return panel;
+        }
+
         private static PausePanel CreatePausePanel(
             RectTransform parent,
             GameManager gameManager,
@@ -739,10 +908,11 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(0f, -18f),
                 new Vector2(620f, 52f));
 
+            // Empty on purpose: only the payments catalog may fill a price in.
             TextMeshProUGUI priceText = UIFactory.CreateText(
                 "Price",
                 productRect,
-                "Покупка",
+                string.Empty,
                 30f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,
@@ -1015,7 +1185,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI priceText = UIFactory.CreateText(
                 "Price",
                 productRect,
-                "Покупка",
+                string.Empty,
                 28f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,
@@ -1071,7 +1241,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI priceText = UIFactory.CreateText(
                 "Price",
                 productRect,
-                "Покупка",
+                string.Empty,
                 20f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,

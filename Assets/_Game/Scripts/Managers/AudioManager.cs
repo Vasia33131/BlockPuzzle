@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using BlockPuzzle.Core;
 
@@ -33,6 +34,9 @@ namespace BlockPuzzle.Managers
 
         public bool IsMuted { get; private set; }
 
+        /// <summary>Raised when the player toggles sound, so the platform layer can mirror it.</summary>
+        public event Action<bool> MutedChanged;
+
         private void Awake()
         {
             IsMuted = PlayerPrefs.GetInt(MutedKey, 0) == 1;
@@ -47,7 +51,7 @@ namespace BlockPuzzle.Managers
                 return;
             }
 
-            placeSource.pitch = Random.Range(0.96f, 1.05f);
+            placeSource.pitch = UnityEngine.Random.Range(0.96f, 1.05f);
             placeSource.PlayOneShot(placeClip, placeVolume * masterVolume);
         }
 
@@ -70,6 +74,23 @@ namespace BlockPuzzle.Managers
         }
 
         public void SetMuted(bool muted)
+        {
+            ApplyMuted(muted);
+            MutedChanged?.Invoke(muted);
+        }
+
+        /// <summary>Applies the choice that came back from the platform save, without echoing it back.</summary>
+        public void RestoreMuted(bool muted)
+        {
+            if (IsMuted == muted)
+            {
+                return;
+            }
+
+            ApplyMuted(muted);
+        }
+
+        private void ApplyMuted(bool muted)
         {
             IsMuted = muted;
             PlayerPrefs.SetInt(MutedKey, muted ? 1 : 0);
@@ -114,7 +135,8 @@ namespace BlockPuzzle.Managers
             var source = go.AddComponent<AudioSource>();
             source.playOnAwake = false;
             source.spatialBlend = 0f;
-            source.ignoreListenerPause = true;
+            // ignoreListenerPause stays off: an ad or an SDK pause sets AudioListener.pause,
+            // and Yandex 1.3 / 4.7 require the game to fall silent behind it.
             return source;
         }
     }

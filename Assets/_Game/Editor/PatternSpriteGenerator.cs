@@ -26,8 +26,12 @@ namespace BlockPuzzle.EditorTools
         public const string BgOceanGuid = "06a04715265810546992011341b40e77";
         public const string BgCandyGuid = "da749fda472104b419c7647b598a7057";
 
-        private const int BlockSize = 32;
-        private const int BackgroundSize = 64;
+        // Paint at the original authoring resolution, then downsample so the WebGL
+        // data file stays small. ThemePattern keeps on-screen tile size unchanged.
+        public const int BlockSourceSize = 256;
+        public const int BlockExportSize = 64;
+        public const int BackgroundSourceSize = 1024;
+        public const int BackgroundExportSize = 256;
 
         [MenuItem("Tools/Block Puzzle/Regenerate Theme Patterns", priority = 26)]
         public static void Regenerate()
@@ -45,26 +49,36 @@ namespace BlockPuzzle.EditorTools
         private static void GenerateAll(bool force)
         {
             Directory.CreateDirectory(Folder);
-            Write(BlockClassicPath, BlockClassicGuid, BlockSize, PaintClassicBlock, force);
-            Write(BlockOceanPath, BlockOceanGuid, BlockSize, PaintOceanBlock, force);
-            Write(BlockCandyPath, BlockCandyGuid, BlockSize, PaintCandyBlock, force);
-            Write(BgClassicPath, BgClassicGuid, BackgroundSize, PaintClassicBackground, force);
-            Write(BgOceanPath, BgOceanGuid, BackgroundSize, PaintOceanBackground, force);
-            Write(BgCandyPath, BgCandyGuid, BackgroundSize, PaintCandyBackground, force);
+            Write(BlockClassicPath, BlockClassicGuid, BlockSourceSize, BlockExportSize, PaintClassicBlock, force);
+            Write(BlockOceanPath, BlockOceanGuid, BlockSourceSize, BlockExportSize, PaintOceanBlock, force);
+            Write(BlockCandyPath, BlockCandyGuid, BlockSourceSize, BlockExportSize, PaintCandyBlock, force);
+            Write(BgClassicPath, BgClassicGuid, BackgroundSourceSize, BackgroundExportSize, PaintClassicBackground, force);
+            Write(BgOceanPath, BgOceanGuid, BackgroundSourceSize, BackgroundExportSize, PaintOceanBackground, force);
+            Write(BgCandyPath, BgCandyGuid, BackgroundSourceSize, BackgroundExportSize, PaintCandyBackground, force);
         }
 
-        private static Sprite Write(string path, string guid, int size, System.Action<Color32[], int> paint, bool force)
+        private static Sprite Write(
+            string path,
+            string guid,
+            int sourceSize,
+            int exportSize,
+            System.Action<Color32[], int> paint,
+            bool force)
         {
-            if (!force && File.Exists(path))
+            if (!force && File.Exists(path) && PngSizeEquals(path, exportSize))
             {
-                ConfigureImporter(path, size);
+                ConfigureImporter(path, exportSize);
                 return AssetDatabase.LoadAssetAtPath<Sprite>(path);
             }
 
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var pixels = new Color32[size * size];
-            paint(pixels, size);
-            texture.SetPixels32(pixels);
+            var sourcePixels = new Color32[sourceSize * sourceSize];
+            paint(sourcePixels, sourceSize);
+            Color32[] exportPixels = sourceSize == exportSize
+                ? sourcePixels
+                : Downsample(sourcePixels, sourceSize, exportSize);
+
+            var texture = new Texture2D(exportSize, exportSize, TextureFormat.RGBA32, false);
+            texture.SetPixels32(exportPixels);
             texture.Apply();
             File.WriteAllBytes(path, texture.EncodeToPNG());
             Object.DestroyImmediate(texture);
@@ -73,12 +87,67 @@ namespace BlockPuzzle.EditorTools
             string resolvedGuid = ReadExistingGuid(metaPath) ?? guid;
             if (!File.Exists(metaPath))
             {
-                WriteMeta(path, resolvedGuid, size);
+                WriteMeta(path, resolvedGuid, exportSize);
             }
 
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-            ConfigureImporter(path, size);
+            ConfigureImporter(path, exportSize);
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static bool PngSizeEquals(string path, int size)
+        {
+            try
+            {
+                using (var stream = File.OpenRead(path))
+                {
+                    if (stream.Length < 24)
+                    {
+                        return false;
+                    }
+
+                    byte[] header = new byte[24];
+                    if (stream.Read(header, 0, 24) < 24)
+                    {
+                        return false;
+                    }
+
+                    int width = (header[16] << 24) | (header[17] << 16) | (header[18] << 8) | header[19];
+                    int height = (header[20] << 24) | (header[21] << 16) | (header[22] << 8) | header[23];
+                    return width == size && height == size;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
+        private static Color32[] Downsample(Color32[] source, int sourceSize, int exportSize)
+        {
+            var dest = new Color32[exportSize * exportSize];
+            float scale = sourceSize / (float)exportSize;
+            for (int y = 0; y < exportSize; y++)
+            {
+                for (int x = 0; x < exportSize; x++)
+                {
+                    float fx = x * scale;
+                    float fy = y * scale;
+                    int x0 = Mathf.Clamp(Mathf.FloorToInt(fx), 0, sourceSize - 1);
+                    int y0 = Mathf.Clamp(Mathf.FloorToInt(fy), 0, sourceSize - 1);
+                    int x1 = Mathf.Min(x0 + 1, sourceSize - 1);
+                    int y1 = Mathf.Min(y0 + 1, sourceSize - 1);
+                    float tx = fx - x0;
+                    float ty = fy - y0;
+                    Color a = source[y0 * sourceSize + x0];
+                    Color b = source[y0 * sourceSize + x1];
+                    Color c = source[y1 * sourceSize + x0];
+                    Color d = source[y1 * sourceSize + x1];
+                    dest[y * exportSize + x] = Color.Lerp(Color.Lerp(a, b, tx), Color.Lerp(c, d, tx), ty);
+                }
+            }
+
+            return dest;
         }
 
         private static string ReadExistingGuid(string metaPath)
@@ -130,11 +199,27 @@ namespace BlockPuzzle.EditorTools
             {
                 return;
             }
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spriteImportMode = SpriteImportMode.Single;
 
+            int maxSize = Mathf.NextPowerOfTwo(Mathf.Max(1, size));
             TextureImporterSettings settings = new TextureImporterSettings();
             importer.ReadTextureSettings(settings);
+            bool alreadyConfigured =
+                importer.textureType == TextureImporterType.Sprite &&
+                importer.spriteImportMode == SpriteImportMode.Single &&
+                importer.alphaIsTransparency &&
+                !importer.mipmapEnabled &&
+                importer.filterMode == FilterMode.Bilinear &&
+                importer.wrapMode == TextureWrapMode.Repeat &&
+                importer.textureCompression == TextureImporterCompression.Compressed &&
+                importer.maxTextureSize == maxSize &&
+                settings.spriteMeshType == SpriteMeshType.FullRect;
+            if (alreadyConfigured)
+            {
+                return;
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
             settings.textureType = TextureImporterType.Sprite;
             settings.spriteMode = (int)SpriteImportMode.Single;
             settings.spriteMeshType = SpriteMeshType.FullRect;
@@ -151,8 +236,8 @@ namespace BlockPuzzle.EditorTools
             importer.alphaIsTransparency = true;
             importer.filterMode = FilterMode.Bilinear;
             importer.wrapMode = TextureWrapMode.Repeat;
-            importer.textureCompression = TextureImporterCompression.Uncompressed;
-            importer.maxTextureSize = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(1, size)));
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            importer.maxTextureSize = maxSize;
             importer.SaveAndReimport();
         }
 

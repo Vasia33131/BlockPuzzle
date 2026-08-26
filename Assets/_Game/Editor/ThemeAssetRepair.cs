@@ -106,6 +106,8 @@ namespace BlockPuzzle.EditorTools
                 importer.alphaIsTransparency &&
                 importer.filterMode == FilterMode.Bilinear &&
                 importer.wrapMode == TextureWrapMode.Clamp &&
+                importer.textureCompression == TextureImporterCompression.Compressed &&
+                importer.maxTextureSize <= 256 &&
                 settings.spriteMeshType == SpriteMeshType.FullRect;
             if (alreadyConfigured)
             {
@@ -128,6 +130,8 @@ namespace BlockPuzzle.EditorTools
             settings.filterMode = FilterMode.Bilinear;
             settings.wrapMode = TextureWrapMode.Clamp;
             importer.SetTextureSettings(settings);
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            importer.maxTextureSize = 256;
             importer.SaveAndReimport();
         }
     }

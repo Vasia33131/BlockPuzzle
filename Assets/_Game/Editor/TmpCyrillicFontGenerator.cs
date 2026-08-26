@@ -8,8 +8,8 @@ using TMPro;
 namespace BlockPuzzle.EditorTools
 {
     /// <summary>
-    /// LiberationSans SDF ships without Cyrillic. This bakes a dynamic fallback atlas
-    /// that covers Russian (including «ф» in «Конфеты» and «Ё» in «СЧЁТ») and wires it
+    /// LiberationSans SDF ships without Cyrillic. This bakes a static fallback atlas
+    /// with the Russian alphabet (including «ф» in «Конфеты» and «Ё» in «СЧЁТ») and wires it
     /// into TMP Settings plus the default font's fallback table.
     /// </summary>
     [InitializeOnLoad]
@@ -20,7 +20,7 @@ namespace BlockPuzzle.EditorTools
         public const string SettingsPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string DefaultFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
 
-        private const string SessionKey = "BlockPuzzle.TmpCyrillicFont.Ran";
+        private const string SessionKey = "BlockPuzzle.TmpCyrillicFont.Static512";
 
         static TmpCyrillicFontGenerator()
         {
@@ -72,54 +72,29 @@ namespace BlockPuzzle.EditorTools
             Directory.CreateDirectory(Path.GetDirectoryName(AssetPath));
 
             TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
-            if (fontAsset == null)
+            if (fontAsset == null || NeedsRebuild(fontAsset))
             {
+                if (fontAsset != null)
+                {
+                    AssetDatabase.DeleteAsset(AssetPath);
+                }
+
                 fontAsset = CreateAsset(source);
-            }
-            else if (!fontAsset.HasCharacter('\u0444', false, false))
-            {
-                BindSourceFont(fontAsset, source);
-                fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                fontAsset.TryAddCharacters(CyrillicCharacters(), true);
-                EditorUtility.SetDirty(fontAsset);
-                AssetDatabase.SaveAssets();
             }
 
             WireFallbacks(fontAsset);
             return fontAsset;
         }
 
-        /// <summary>
-        /// <see cref="TMP_FontAsset.sourceFontFile"/> is internally set-only. The public
-        /// <see cref="TMP_FontAsset.atlasPopulationMode"/> setter copies the editor ref
-        /// into that field once Dynamic mode is enabled.
-        /// </summary>
-        private static void BindSourceFont(TMP_FontAsset fontAsset, Font source)
-        {
-            if (fontAsset == null || source == null)
-            {
-                return;
-            }
-
-            var serialized = new SerializedObject(fontAsset);
-            SerializedProperty editorRef = serialized.FindProperty("m_SourceFontFile_EditorRef");
-            if (editorRef != null)
-            {
-                editorRef.objectReferenceValue = source;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         private static TMP_FontAsset CreateAsset(Font source)
         {
             TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(
                 source,
-                86,
-                9,
+                42,
+                5,
                 GlyphRenderMode.SDFAA_HINTED,
-                1024,
-                1024,
+                512,
+                512,
                 AtlasPopulationMode.Dynamic,
                 true);
 
@@ -153,11 +128,21 @@ namespace BlockPuzzle.EditorTools
             }
 
             fontAsset.TryAddCharacters(CyrillicCharacters(), true);
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
             return AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
+        }
+
+        private static bool NeedsRebuild(TMP_FontAsset fontAsset)
+        {
+            return fontAsset.atlasPopulationMode != AtlasPopulationMode.Static
+                   || fontAsset.atlasWidth > 512
+                   || fontAsset.atlasHeight > 512
+                   || !fontAsset.HasCharacter('\u0444', false, false)
+                   || !fontAsset.HasCharacter('\u0401', false, false);
         }
 
         private static void WireFallbacks(TMP_FontAsset cyrillic)
@@ -192,34 +177,50 @@ namespace BlockPuzzle.EditorTools
                 return;
             }
 
-            for (int i = 0; i < list.arraySize; i++)
+            bool alreadyPresent = false;
+            for (int i = list.arraySize - 1; i >= 0; i--)
             {
-                if (list.GetArrayElementAtIndex(i).objectReferenceValue == fallback)
+                Object value = list.GetArrayElementAtIndex(i).objectReferenceValue;
+                if (value == null)
                 {
-                    return;
+                    list.DeleteArrayElementAtIndex(i);
+                    continue;
+                }
+
+                if (value == fallback)
+                {
+                    alreadyPresent = true;
                 }
             }
 
-            int index = list.arraySize;
-            list.arraySize = index + 1;
-            list.GetArrayElementAtIndex(index).objectReferenceValue = fallback;
+            if (!alreadyPresent)
+            {
+                int index = list.arraySize;
+                list.arraySize = index + 1;
+                list.GetArrayElementAtIndex(index).objectReferenceValue = fallback;
+            }
+
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(host);
         }
 
-        /// <summary>Cyrillic block plus a few punctuation marks used in the Russian UI.</summary>
+        /// <summary>Russian alphabet plus punctuation used in the UI (СЧЁТ, Конфеты, 1–2, «—»).</summary>
         private static string CyrillicCharacters()
         {
-            var text = new StringBuilder(320);
-            for (int code = 0x0400; code <= 0x045F; code++)
+            var text = new StringBuilder(80);
+            for (int code = 0x0410; code <= 0x044F; code++)
             {
                 text.Append((char)code);
             }
 
+            text.Append('\u0401');
+            text.Append('\u0451');
             text.Append('\u2013');
             text.Append('\u2014');
             text.Append('\u2026');
             text.Append('\u2116');
+            text.Append('\u00AB');
+            text.Append('\u00BB');
             return text.ToString();
         }
     }

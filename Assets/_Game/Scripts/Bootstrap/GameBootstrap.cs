@@ -30,7 +30,8 @@ namespace BlockPuzzle.Bootstrap
                 GameSceneFactory.Build(shapeLibrary);
             }
 
-            // Baked scenes may predate UIManager / OrientationHandler / BoosterBar / ShopPanel.
+            // Baked scenes may predate UIManager / OrientationHandler / BoosterBar / ShopPanel /
+            // BoosterConfirmPanel.
             UIManager.Ensure();
             OrientationHandler.Ensure();
 
@@ -42,6 +43,7 @@ namespace BlockPuzzle.Bootstrap
             RectTransform topPanel = GameObject.Find("TopPanel")?.GetComponent<RectTransform>();
             Button hudShop = GameSceneFactory.EnsureHudShopButton(topPanel);
             GameSceneFactory.EnsureShopPanel(canvasRect, hudShop);
+            GameSceneFactory.EnsureBoosterConfirmPanel(canvasRect, gameManager);
             ThemeBinder.Ensure();
             GameTheme.ApplyFromProgress();
             FindObjectOfType<OrientationHandler>()?.RefreshNow();

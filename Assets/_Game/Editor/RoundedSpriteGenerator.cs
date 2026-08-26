@@ -58,7 +58,7 @@ namespace BlockPuzzle.EditorTools
             importer.alphaIsTransparency = true;
             importer.filterMode = FilterMode.Bilinear;
             importer.wrapMode = TextureWrapMode.Clamp;
-            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.textureCompression = TextureImporterCompression.Compressed;
             importer.maxTextureSize = 64;
             importer.SaveAndReimport();
         }

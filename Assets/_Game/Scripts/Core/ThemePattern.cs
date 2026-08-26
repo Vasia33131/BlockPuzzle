@@ -89,10 +89,39 @@ namespace BlockPuzzle.Core
 
             image.sprite = sprite;
             image.type = sprite != null ? Image.Type.Tiled : Image.Type.Simple;
-            image.pixelsPerUnitMultiplier = 1f;
+            image.pixelsPerUnitMultiplier = TileMultiplier(sprite);
             image.color = color;
             image.raycastTarget = false;
             image.enabled = enabled && sprite != null;
+        }
+
+        /// <summary>
+        /// Patterns were authored as 1024px (backdrop) and 256px (cubes). Exported
+        /// copies are smaller; this keeps the on-screen repeat size the same.
+        /// </summary>
+        private static float TileMultiplier(Sprite sprite)
+        {
+            if (sprite == null)
+            {
+                return 1f;
+            }
+
+            float design = sprite.name.StartsWith("Bg", System.StringComparison.Ordinal)
+                ? PatternTile.BackgroundPixels
+                : PatternTile.BlockPixels;
+            float width = sprite.rect.width;
+            if (width < 1f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Max(0.05f, width / design);
+        }
+
+        private static class PatternTile
+        {
+            public const float BackgroundPixels = 1024f;
+            public const float BlockPixels = 256f;
         }
     }
 }

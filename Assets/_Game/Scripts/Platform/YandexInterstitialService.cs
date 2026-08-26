@@ -3,27 +3,29 @@ using UnityEngine;
 using BlockPuzzle.Core;
 using BlockPuzzle.Grid;
 using BlockPuzzle.Managers;
+using BlockPuzzle.UI;
 using YG;
 
 namespace BlockPuzzle.Platform
 {
     /// <summary>
-    /// Fullscreen (interstitial) ads for Yandex Games.
+    /// Fullscreen (interstitial) ads for Yandex Games, plus the GameplayAPI flag.
     ///
     /// Block Puzzle is a turn-based puzzle. Yandex requirement 4.4 says ads in such
-    /// games must open immediately after a player action, without a countdown:
-    /// restart tap, or dropping a figure. A 2-second "ads in 2, 1" warning is only
-    /// for real-time games with levels longer than 5 minutes; using it here would
-    /// exceed the 0.33s delay cap and fail moderation.
+    /// games must open immediately after a player action, without a countdown and
+    /// without a warning: dropping a figure, or a restart tap. The delay cap is
+    /// 0.33s, which leaves no room for an "ad is coming" card, so there is none.
     ///
-    /// Frequency is owned by the platform / PluginYG2 timer. Calling
-    /// <see cref="YG2.InterstitialAdvShow"/> when the interval is not over is a no-op.
+    /// Frequency is owned by the platform / PluginYG2 timer (interAdvInterval).
+    /// Calling <see cref="YG2.InterstitialAdvShow"/> before the interval is over is a no-op.
     /// </summary>
     [DefaultExecutionOrder(110)]
     public sealed class YandexInterstitialService : MonoBehaviour
     {
         private GameManager gameManager;
         private GridManager grid;
+        private ShopPanel shopPanel;
+        private BoosterConfirmPanel boosterConfirm;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCreate()
@@ -48,6 +50,13 @@ namespace BlockPuzzle.Platform
             {
                 TryBind();
             }
+
+            if (shopPanel == null || boosterConfirm == null)
+            {
+                TryBindOverlays();
+            }
+
+            SyncGameplayApi();
         }
 
         private void TryBind()
@@ -66,7 +75,21 @@ namespace BlockPuzzle.Platform
             gameManager.StateChanged += HandleStateChanged;
             gameManager.RestartRequested += HandleRestartRequested;
             BindGrid(gameManager.Grid);
-            SyncGameplayApi(gameManager.State);
+            TryBindOverlays();
+            SyncGameplayApi();
+        }
+
+        private void TryBindOverlays()
+        {
+            if (shopPanel == null)
+            {
+                shopPanel = FindObjectOfType<ShopPanel>(true);
+            }
+
+            if (boosterConfirm == null)
+            {
+                boosterConfirm = FindObjectOfType<BoosterConfirmPanel>(true);
+            }
         }
 
         private void Unbind()
@@ -114,12 +137,12 @@ namespace BlockPuzzle.Platform
                 BindGrid(gameManager.Grid);
             }
 
-            SyncGameplayApi(state);
+            SyncGameplayApi();
         }
 
         /// <summary>
-        /// Restart is a non-gameplay tap (Game Over / Pause). Yandex wants the ad
-        /// on that same tap, with no warning overlay.
+        /// Restart is a non-gameplay tap (Game Over / Pause). Yandex wants the ad on
+        /// that same tap, with nothing in between.
         /// </summary>
         private void HandleRestartRequested() => TryShowInterstitial();
 
@@ -157,12 +180,14 @@ namespace BlockPuzzle.Platform
         }
 
         /// <summary>
-        /// Tells Yandex when the player is actually playing, so session metrics stay
-        /// accurate. Ads already pause via <see cref="YG2.PauseGame"/>.
+        /// Requirement 1.19.3: the gameplay flag may be on only while the player can
+        /// really act on the board. Both calls are cheap — PluginYG2 ignores a repeat
+        /// of the state it is already in — so the check runs every frame and covers
+        /// overlays that do not change <see cref="GameState"/>, like the shop.
         /// </summary>
-        private static void SyncGameplayApi(GameState state)
+        private void SyncGameplayApi()
         {
-            if (state == GameState.Playing)
+            if (IsPlayerOnBoard())
             {
                 YG2.GameplayStart();
             }
@@ -170,6 +195,28 @@ namespace BlockPuzzle.Platform
             {
                 YG2.GameplayStop();
             }
+        }
+
+        private bool IsPlayerOnBoard()
+        {
+            // Pause and Game Over live in the state; window focus is handled by the
+            // SDK pause, which we only read here so we do not fight it.
+            if (gameManager == null || gameManager.State != GameState.Playing)
+            {
+                return false;
+            }
+
+            if (YG2.nowAdsShow || YG2.isPauseGame || !YG2.isFocusWindowGame)
+            {
+                return false;
+            }
+
+            if (shopPanel != null && shopPanel.IsOpen)
+            {
+                return false;
+            }
+
+            return boosterConfirm == null || !boosterConfirm.IsOpen;
         }
     }
 }

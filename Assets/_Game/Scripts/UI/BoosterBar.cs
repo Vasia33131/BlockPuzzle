@@ -13,8 +13,9 @@ namespace BlockPuzzle.UI
     /// <summary>
     /// Three boosters between the board and the figure tray. Each button is the
     /// booster sprite itself. A free +1 charge is applied immediately; otherwise
-    /// this bar raises <see cref="UndoRequested"/>, <see cref="ExtraRequested"/>
-    /// and <see cref="ClearRequested"/> so platform code can show a rewarded ad.
+    /// a confirm overlay explains the bonus, then this bar raises
+    /// <see cref="UndoRequested"/>, <see cref="ExtraRequested"/> and
+    /// <see cref="ClearRequested"/> so platform code can show a rewarded ad.
     /// Hidden while paused or on Game Over.
     /// </summary>
     public class BoosterBar : MonoBehaviour
@@ -37,6 +38,7 @@ namespace BlockPuzzle.UI
         private static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
 
         [SerializeField] private GameManager gameManager;
+        [SerializeField] private BoosterConfirmPanel confirmPanel;
         [SerializeField] private Button undoButton;
         [SerializeField] private Button extraButton;
         [SerializeField] private Button clearButton;
@@ -78,10 +80,20 @@ namespace BlockPuzzle.UI
             Bind(manager);
         }
 
+        public void Bind(GameManager manager, BoosterConfirmPanel confirm)
+        {
+            confirmPanel = confirm;
+            Bind(manager);
+        }
+
         public void Bind(GameManager manager)
         {
             Unbind();
             gameManager = manager;
+            if (confirmPanel == null)
+            {
+                confirmPanel = FindObjectOfType<BoosterConfirmPanel>(true);
+            }
             EnsureCanvasGroup();
             ApplySpriteButtons();
             CacheButtonParts();
@@ -200,7 +212,27 @@ namespace BlockPuzzle.UI
                 return;
             }
 
+            if (confirmPanel != null)
+            {
+                confirmPanel.Show(type, rewardedRequest);
+                return;
+            }
+
             rewardedRequest?.Invoke();
+        }
+
+        /// <summary>Booster sprite used on the bar and on the confirm overlay.</summary>
+        public static Sprite IconFor(FreeBoosterType type)
+        {
+            switch (type)
+            {
+                case FreeBoosterType.Extra:
+                    return LoadBoosterSprite(ExtraIconPath);
+                case FreeBoosterType.Clear:
+                    return LoadBoosterSprite(ClearIconPath);
+                default:
+                    return LoadBoosterSprite(UndoIconPath);
+            }
         }
 
         private void RefreshAvailability()

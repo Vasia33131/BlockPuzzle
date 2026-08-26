@@ -21,14 +21,14 @@ namespace BlockPuzzle.UI
         private const float LayoutSettleDelay = 0.1f;
 
         private const float PortraitTopMargin = 12f;
-        private const float PortraitTopHeight = 84f;
+        private const float PortraitTopHeight = 112f;
         private const float PortraitSideMargin = 16f;
-        private const float PortraitPauseSize = 56f;
+        private const float PortraitPauseSize = 92f;
 
         private const float LandscapeTopMargin = 8f;
-        private const float LandscapeTopHeight = 72f;
+        private const float LandscapeTopHeight = 96f;
         private const float LandscapeSideMargin = 12f;
-        private const float LandscapePauseSize = 48f;
+        private const float LandscapePauseSize = 78f;
 
         private const float ScoreSectionWidth = 320f;
         private const float BestSectionWidth = 280f;
@@ -211,10 +211,6 @@ namespace BlockPuzzle.UI
             lastOrientation = Screen.orientation;
             lastResolution = new Vector2Int(Screen.width, Screen.height);
             lastPortrait = isPortrait;
-
-            Debug.Log(
-                $"[OrientationHandler] Layout updated: {(isPortrait ? "Portrait" : "Landscape")} " +
-                $"{Screen.width}x{Screen.height}");
         }
 
         private void ApplyCanvasScaler(bool isPortrait)

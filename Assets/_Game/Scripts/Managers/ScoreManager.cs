@@ -6,6 +6,9 @@ namespace BlockPuzzle.Managers
 {
     /// <summary>
     /// Keeps the current run's score and the all-time best, which is persisted in PlayerPrefs.
+    /// The record must also survive a change of device, so the platform layer mirrors it
+    /// into the Yandex save on <see cref="BestScoreSaved"/> and feeds the cloud copy back
+    /// through <see cref="RestoreBestScore"/>. The running board is never saved.
     /// </summary>
     public class ScoreManager : MonoBehaviour
     {
@@ -32,6 +35,9 @@ namespace BlockPuzzle.Managers
 
         public event Action<int> ScoreChanged;
         public event Action<int> BestScoreChanged;
+
+        /// <summary>Raised when the record was flushed to storage, so it can be mirrored to the cloud.</summary>
+        public event Action<int> BestScoreSaved;
 
         /// <summary>Raised when lines are cleared: (lines, points awarded, combo streak).</summary>
         public event Action<int, int, int> LinesCleared;
@@ -114,6 +120,24 @@ namespace BlockPuzzle.Managers
         {
             PlayerPrefs.SetInt(BestScoreKey, BestScore);
             PlayerPrefs.Save();
+            BestScoreSaved?.Invoke(BestScore);
+        }
+
+        /// <summary>
+        /// Raises the record to a value that came from the platform save — the same
+        /// account opened on another device. A lower cloud value is ignored.
+        /// </summary>
+        public void RestoreBestScore(int best)
+        {
+            if (best <= BestScore)
+            {
+                return;
+            }
+
+            BestScore = best;
+            recordAtRunStart = Mathf.Max(recordAtRunStart, best);
+            BestScoreChanged?.Invoke(BestScore);
+            Save();
         }
 
         private void TryUpdateBestScore()

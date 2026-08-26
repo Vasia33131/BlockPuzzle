@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using BlockPuzzle.Core;
 using BlockPuzzle.UI;
 using YG;
@@ -12,6 +15,11 @@ namespace BlockPuzzle.Platform
     /// <see cref="OceanThemeProductId"/> and <see cref="CandyThemeProductId"/> unlock palettes;
     /// <see cref="ShapesPack1ProductId"/> mixes extra figures into the tray.
     /// Rewarded placements stay available — the player opts into those videos for a bonus.
+    ///
+    /// The shop only ever shows what the catalog returned: <c>purchase.price</c> as the
+    /// amount and <c>purchase.currencyImageURL</c> as the icon next to it (1.13.2, 1.13.4).
+    /// Grants are written through <see cref="PlayerProgress"/>, which the cloud service
+    /// mirrors into the Yandex save, so a consumed purchase survives another device (1.13.3).
     /// </summary>
     [DefaultExecutionOrder(85)]
     public sealed class YandexPaymentsService : MonoBehaviour
@@ -32,8 +40,21 @@ namespace BlockPuzzle.Platform
             ShapesPack1ProductId
         };
 
+        private static readonly string[] AllProductIds =
+        {
+            NoAdsProductId,
+            OceanThemeProductId,
+            CandyThemeProductId,
+            ShapesPack1ProductId
+        };
+
         private ShopPanel shopPanel;
         private bool restoreRequested;
+
+        // Loaders live on this always-active object, not on the shop card, so a
+        // download is never cut short by the overlay being hidden.
+        private readonly Dictionary<string, ImageLoadYG> currencyLoaders =
+            new Dictionary<string, ImageLoadYG>(StringComparer.Ordinal);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCreate()
@@ -53,6 +74,7 @@ namespace BlockPuzzle.Platform
             YG2.onPurchaseSuccess += HandlePurchaseSuccess;
             YG2.onGetPayments += HandlePaymentsReady;
             YG2.onGetSDKData += HandleSdkData;
+            YandexCloudProgressService.Restored += HandleCloudRestored;
             TryBindShop();
 
             if (YG2.isSDKEnabled)
@@ -70,6 +92,7 @@ namespace BlockPuzzle.Platform
             YG2.onPurchaseSuccess -= HandlePurchaseSuccess;
             YG2.onGetPayments -= HandlePaymentsReady;
             YG2.onGetSDKData -= HandleSdkData;
+            YandexCloudProgressService.Restored -= HandleCloudRestored;
             UnbindShop();
         }
 
@@ -94,7 +117,7 @@ namespace BlockPuzzle.Platform
             shopPanel.NoAdsBuyRequested += HandleNoAdsBuyRequested;
             shopPanel.ThemeBuyRequested += HandleThemeBuyRequested;
             shopPanel.PackBuyRequested += HandlePackBuyRequested;
-            PushCatalogPrices();
+            PushCatalogOffers();
             shopPanel.RefreshPurchaseState();
         }
 
@@ -118,7 +141,7 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
-            YG2.BuyPayments(NoAdsProductId);
+            TryBuy(NoAdsProductId);
         }
 
         private void HandleThemeBuyRequested(string id)
@@ -128,12 +151,23 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
-            YG2.BuyPayments(id);
+            TryBuy(id);
         }
 
         private void HandlePackBuyRequested(string id)
         {
             if (string.IsNullOrEmpty(id) || PlayerProgress.OwnsPack(id))
+            {
+                return;
+            }
+
+            TryBuy(id);
+        }
+
+        /// <summary>A product the catalog does not list cannot be sold, so it is not offered.</summary>
+        private static void TryBuy(string id)
+        {
+            if (YG2.PurchaseByID(id) == null)
             {
                 return;
             }
@@ -170,10 +204,25 @@ namespace BlockPuzzle.Platform
             HandlePaymentsReady();
         }
 
+        /// <summary>
+        /// The account copy of the purchases is in. Redraw the shop with it before the
+        /// player can act on a card (1.13.3).
+        /// </summary>
+        private void HandleCloudRestored()
+        {
+            PushCatalogOffers();
+            shopPanel?.RefreshPurchaseState();
+
+            if (PlayerProgress.AdsRemoved)
+            {
+                ApplyAdsRemoved();
+            }
+        }
+
         private void HandlePaymentsReady()
         {
             YG2.ConsumePurchases();
-            PushCatalogPrices();
+            PushCatalogOffers();
             TryGrantFromCatalog();
         }
 
@@ -258,46 +307,77 @@ namespace BlockPuzzle.Platform
             RefreshBannerLayout();
         }
 
-        private void PushCatalogPrices()
+        /// <summary>
+        /// Feeds the shop the catalog price of every product plus the currency icon.
+        /// A product missing from the catalog is pushed as no offer at all, which turns
+        /// its card off instead of showing an amount the player could not pay.
+        /// </summary>
+        private void PushCatalogOffers()
         {
             if (shopPanel == null)
             {
                 return;
             }
 
-            shopPanel.SetProductPrice(NoAdsProductId, ReadCatalogPrice(NoAdsProductId));
-            for (int i = 0; i < ThemeProductIds.Length; i++)
+            for (int i = 0; i < AllProductIds.Length; i++)
             {
-                string themeId = ThemeProductIds[i];
-                shopPanel.SetProductPrice(themeId, ReadCatalogPrice(themeId));
-            }
-
-            for (int i = 0; i < PackProductIds.Length; i++)
-            {
-                string packId = PackProductIds[i];
-                shopPanel.SetProductPrice(packId, ReadCatalogPrice(packId));
+                string productId = AllProductIds[i];
+                Purchase purchase = YG2.PurchaseByID(productId);
+                shopPanel.SetProductOffer(productId, ReadCatalogPrice(purchase));
+                LoadCurrencyIcon(productId, purchase);
             }
         }
 
-        private static string ReadCatalogPrice(string productId)
+        /// <summary>
+        /// Loads <c>purchase.currencyImageURL</c> into the slot next to the price, the
+        /// same way <see cref="PurchaseYG"/> does for its own cards. A mocked currency
+        /// on the debug panel therefore changes both the amount and the icon.
+        /// </summary>
+        private void LoadCurrencyIcon(string productId, Purchase purchase)
         {
-            Purchase purchase = YG2.PurchaseByID(productId);
+            string url = purchase != null ? purchase.currencyImageURL : null;
+            if (string.IsNullOrEmpty(url) || url == "null")
+            {
+                return;
+            }
+
+            Image icon = shopPanel.ResolveCurrencyIcon(productId);
+            if (icon == null)
+            {
+                return;
+            }
+
+            if (!currencyLoaders.TryGetValue(productId, out ImageLoadYG loader) || loader == null)
+            {
+                loader = gameObject.AddComponent<ImageLoadYG>();
+                currencyLoaders[productId] = loader;
+            }
+
+            if (loader.spriteImage == icon && loader.urlImage == url)
+            {
+                return;
+            }
+
+            loader.spriteImage = icon;
+            loader.urlImage = url;
+            loader.Load();
+        }
+
+        private static string ReadCatalogPrice(Purchase purchase)
+        {
             if (purchase == null)
             {
                 return null;
             }
 
+            // price already carries the portal currency; priceValue is the bare amount
+            // and is only used when the platform left price empty.
             if (!string.IsNullOrEmpty(purchase.price))
             {
                 return purchase.price;
             }
 
-            if (!string.IsNullOrEmpty(purchase.priceValue))
-            {
-                return purchase.priceValue;
-            }
-
-            return null;
+            return string.IsNullOrEmpty(purchase.priceValue) ? null : purchase.priceValue;
         }
 
         private static bool IsThemeProduct(string id)
