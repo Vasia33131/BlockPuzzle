@@ -4,18 +4,31 @@ using BlockPuzzle.Pieces;
 
 namespace BlockPuzzle.Managers
 {
+    public enum FreeBoosterType
+    {
+        Undo,
+        Extra,
+        Clear
+    }
+
     /// <summary>
-    /// Rewarded in-run boosters and the one-shot continue on Game Over.
+    /// Rewarded in-run boosters, the one-shot continue on Game Over, and the
+    /// single free score-threshold charge for the current run.
     /// </summary>
     public class BoosterController : MonoBehaviour
     {
+        public const int FreeBonusScoreStep = 250;
+
         [SerializeField] private GameManager gameManager;
         [SerializeField] private GridManager grid;
         [SerializeField] private ShapeSpawner spawner;
         [SerializeField] private UndoBuffer undoBuffer;
         [SerializeField] private GameOverHandler gameOverHandler;
+        [SerializeField] private ScoreManager scoreManager;
 
         private bool continueUsed;
+        private FreeBoosterType? freeCharge;
+        private int lastGrantedThreshold;
 
         /// <summary>True until this run has already used the continue booster.</summary>
         public bool CanContinue => !continueUsed;
@@ -30,6 +43,9 @@ namespace BlockPuzzle.Managers
         public bool CanClearLine =>
             grid != null && grid.Model != null && grid.Model.OccupiedCount > 0;
 
+        /// <summary>Unused free charge for this run, if any. Not persisted.</summary>
+        public FreeBoosterType? FreeCharge => freeCharge;
+
         public void Configure(
             GameManager manager,
             GridManager gridManager,
@@ -42,12 +58,67 @@ namespace BlockPuzzle.Managers
             spawner = shapeSpawner;
             undoBuffer = undo;
             gameOverHandler = gameOver;
+            BindScore();
         }
+
+        private void OnEnable() => BindScore();
+
+        private void OnDisable() => UnbindScore();
 
         /// <summary>Allows continue again. Called at the start of every run.</summary>
         public void ResetContinue()
         {
             continueUsed = false;
+        }
+
+        /// <summary>
+        /// Drops the free charge and score threshold. Called at the start of every
+        /// run; Game Over continue must not call this.
+        /// </summary>
+        public void ResetRun()
+        {
+            freeCharge = null;
+            lastGrantedThreshold = 0;
+        }
+
+        public bool HasFree(FreeBoosterType type) => freeCharge == type;
+
+        /// <summary>
+        /// Applies the matching booster and burns the charge. False when this is
+        /// not the charged type or <c>Can*</c> is false — the charge stays.
+        /// </summary>
+        public bool TryConsumeFree(FreeBoosterType type)
+        {
+            if (freeCharge != type)
+            {
+                return false;
+            }
+
+            bool applied;
+            switch (type)
+            {
+                case FreeBoosterType.Undo:
+                    applied = CanUndo && TryUndo();
+                    break;
+                case FreeBoosterType.Extra:
+                    applied = CanExtraPiece && TryExtraPiece();
+                    break;
+                case FreeBoosterType.Clear:
+                    applied = CanClearLine && TryClearFullestLine();
+                    break;
+                default:
+                    return false;
+            }
+
+            if (!applied)
+            {
+                return false;
+            }
+
+            freeCharge = null;
+            int score = scoreManager != null ? scoreManager.Score : 0;
+            lastGrantedThreshold = score / FreeBonusScoreStep;
+            return true;
         }
 
         public bool TryUndo()
@@ -219,6 +290,55 @@ namespace BlockPuzzle.Managers
                 Fill = fill;
                 Cleared = false;
             }
+        }
+
+        private void BindScore()
+        {
+            ScoreManager score = gameManager != null ? gameManager.Score : null;
+            if (scoreManager != null && scoreManager != score)
+            {
+                scoreManager.ScoreChanged -= HandleScoreChanged;
+            }
+
+            scoreManager = score;
+            if (scoreManager == null)
+            {
+                return;
+            }
+
+            scoreManager.ScoreChanged -= HandleScoreChanged;
+            scoreManager.ScoreChanged += HandleScoreChanged;
+        }
+
+        private void UnbindScore()
+        {
+            if (scoreManager != null)
+            {
+                scoreManager.ScoreChanged -= HandleScoreChanged;
+                scoreManager = null;
+            }
+        }
+
+        private void HandleScoreChanged(int score)
+        {
+            TryGrantFreeBonus(score);
+        }
+
+        private void TryGrantFreeBonus(int score)
+        {
+            if (freeCharge.HasValue)
+            {
+                return;
+            }
+
+            int threshold = score / FreeBonusScoreStep;
+            if (threshold <= lastGrantedThreshold)
+            {
+                return;
+            }
+
+            freeCharge = (FreeBoosterType)Random.Range(0, 3);
+            lastGrantedThreshold = threshold;
         }
     }
 }

@@ -31,6 +31,24 @@ namespace BlockPuzzle.Bootstrap
         private const float SpawnAreaSideMargin = 30f;
         private const float BoosterBarSideMargin = 30f;
 
+        public const string ThemeClassicCardName = "ThemeClassicCard";
+        public const string ThemeDefaultCardName = "ThemeDefaultCard";
+        public const string ThemeOceanCardName = "ThemeOceanCard";
+        public const string ThemeCandyCardName = "ThemeCandyCard";
+
+        private const float ShopCardWidth = 780f;
+        private const float ShopCardHeight = 1280f;
+        private const float ShopProductWidth = 680f;
+        private const float NoAdsCardHeight = 250f;
+        private const float NoAdsCardY = -148f;
+        private const float ThemeCardWidth = 216f;
+        private const float ThemeCardHeight = 360f;
+        private const float ThemeCardY = -428f;
+        private const float ThemeCardPitch = 232f;
+        private const float ThemeIconSize = 72f;
+        private const float PackCardHeight = 230f;
+        private const float PackCardY = -838f;
+
         /// <summary>Optional authored prefabs used when baking or bootstrapping the scene.</summary>
         public sealed class PrefabSet
         {
@@ -429,9 +447,22 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI text = UIFactory.CreateText(
                 textName, section, initialText, 36f, GameTheme.TextPrimary, alignment, FontStyles.Bold);
             UIFactory.Stretch(text.rectTransform);
-            text.enableWordWrapping = false;
-            text.overflowMode = TextOverflowModes.Ellipsis;
+            FitHudNumber(text);
             return text;
+        }
+
+        private static void FitHudNumber(TMP_Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 16f;
+            text.fontSizeMax = 36f;
         }
 
         /// <summary>
@@ -533,6 +564,7 @@ namespace BlockPuzzle.Bootstrap
             colors.disabledColor = new Color(1f, 1f, 1f, 0.35f);
             colors.fadeDuration = 0.08f;
             button.colors = colors;
+            ButtonPressAnimator.Attach(button);
         }
 
         private static PausePanel CreatePausePanel(
@@ -671,7 +703,7 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f),
                 Vector2.zero,
-                new Vector2(780f, 1280f));
+                new Vector2(ShopCardWidth, ShopCardHeight));
 
             TextMeshProUGUI title = UIFactory.CreateText(
                 "Title", card, "МАГАЗИН", 72f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
@@ -755,7 +787,8 @@ namespace BlockPuzzle.Bootstrap
         }
 
         /// <summary>
-        /// Adds the two paid theme cards to a shop that was baked before they existed.
+        /// Adds the free classic card plus the two paid theme cards to a shop
+        /// that was baked before they existed, then packs them into one row.
         /// </summary>
         public static void EnsureThemeProductCards(RectTransform shopCard)
         {
@@ -764,14 +797,11 @@ namespace BlockPuzzle.Bootstrap
                 return;
             }
 
-            if (shopCard.Find("ThemeOceanCard") != null && shopCard.Find("ThemeCandyCard") != null)
-            {
-                return;
-            }
-
-            shopCard.sizeDelta = new Vector2(780f, 1280f);
+            shopCard.sizeDelta = new Vector2(ShopCardWidth, ShopCardHeight);
             CompactNoAdsCard(shopCard.Find("NoAdsCard") as RectTransform);
             CreateThemeProductCards(shopCard);
+            LayoutThemeProductCards(shopCard);
+            LayoutShapesPackCard(shopCard.Find("ShapesPack1Card") as RectTransform);
         }
 
         /// <summary>
@@ -779,13 +809,14 @@ namespace BlockPuzzle.Bootstrap
         /// </summary>
         public static void EnsureShapesPackCard(RectTransform shopCard)
         {
-            if (shopCard == null || shopCard.Find("ShapesPack1Card") != null)
+            if (shopCard == null)
             {
                 return;
             }
 
-            shopCard.sizeDelta = new Vector2(780f, 1280f);
+            shopCard.sizeDelta = new Vector2(ShopCardWidth, ShopCardHeight);
             CreateShapesPackCard(shopCard);
+            LayoutShapesPackCard(shopCard.Find("ShapesPack1Card") as RectTransform);
         }
 
         private static void CompactNoAdsCard(RectTransform productRect)
@@ -799,8 +830,8 @@ namespace BlockPuzzle.Bootstrap
                 productRect,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -148f),
-                new Vector2(680f, 250f));
+                new Vector2(0f, NoAdsCardY),
+                new Vector2(ShopProductWidth, NoAdsCardHeight));
 
             RectTransform buy = productRect.Find("BuyButton") as RectTransform;
             if (buy != null)
@@ -821,23 +852,138 @@ namespace BlockPuzzle.Bootstrap
                 return;
             }
 
-            if (shopCard.Find("ThemeOceanCard") == null)
+            if (FindThemeCard(shopCard, ThemeClassicCardName, ThemeDefaultCardName) == null)
             {
                 CreateThemeProductCard(
                     shopCard,
-                    "ThemeOceanCard",
-                    GameTheme.Get(ThemeConfig.OceanId),
-                    new Vector2(-175f, -428f));
+                    ThemeClassicCardName,
+                    GameTheme.Get(ThemeConfig.DefaultId),
+                    ClassicThemePosition);
             }
 
-            if (shopCard.Find("ThemeCandyCard") == null)
+            if (shopCard.Find(ThemeOceanCardName) == null)
             {
                 CreateThemeProductCard(
                     shopCard,
-                    "ThemeCandyCard",
-                    GameTheme.Get(ThemeConfig.CandyId),
-                    new Vector2(175f, -428f));
+                    ThemeOceanCardName,
+                    GameTheme.Get(ThemeConfig.OceanId),
+                    OceanThemePosition);
             }
+
+            if (shopCard.Find(ThemeCandyCardName) == null)
+            {
+                CreateThemeProductCard(
+                    shopCard,
+                    ThemeCandyCardName,
+                    GameTheme.Get(ThemeConfig.CandyId),
+                    CandyThemePosition);
+            }
+        }
+
+        private static Vector2 ClassicThemePosition => new Vector2(-ThemeCardPitch, ThemeCardY);
+        private static Vector2 OceanThemePosition => new Vector2(0f, ThemeCardY);
+        private static Vector2 CandyThemePosition => new Vector2(ThemeCardPitch, ThemeCardY);
+
+        private static Transform FindThemeCard(RectTransform shopCard, string primaryName, string aliasName)
+        {
+            Transform card = shopCard.Find(primaryName);
+            return card != null ? card : shopCard.Find(aliasName);
+        }
+
+        private static void LayoutThemeProductCards(RectTransform shopCard)
+        {
+            if (shopCard == null)
+            {
+                return;
+            }
+
+            LayoutThemeProductCard(
+                FindThemeCard(shopCard, ThemeClassicCardName, ThemeDefaultCardName) as RectTransform,
+                ClassicThemePosition);
+            LayoutThemeProductCard(shopCard.Find(ThemeOceanCardName) as RectTransform, OceanThemePosition);
+            LayoutThemeProductCard(shopCard.Find(ThemeCandyCardName) as RectTransform, CandyThemePosition);
+        }
+
+        private static void LayoutThemeProductCard(RectTransform productRect, Vector2 position)
+        {
+            if (productRect == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                productRect,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                position,
+                new Vector2(ThemeCardWidth, ThemeCardHeight));
+
+            LayoutThemeSwatch(productRect.Find("Icon") as RectTransform);
+
+            RectTransform title = productRect.Find("Title") as RectTransform;
+            if (title != null)
+            {
+                UIFactory.Anchor(
+                    title,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -96f),
+                    new Vector2(196f, 40f));
+                TMP_Text titleLabel = title.GetComponent<TMP_Text>();
+                if (titleLabel != null)
+                {
+                    titleLabel.fontSize = 26f;
+                    titleLabel.enableWordWrapping = false;
+                    titleLabel.overflowMode = TextOverflowModes.Ellipsis;
+                }
+            }
+
+            RectTransform price = productRect.Find("Price") as RectTransform;
+            if (price != null)
+            {
+                UIFactory.Anchor(
+                    price,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -136f),
+                    new Vector2(196f, 28f));
+                TMP_Text priceLabel = price.GetComponent<TMP_Text>();
+                if (priceLabel != null)
+                {
+                    priceLabel.fontSize = 20f;
+                }
+            }
+
+            RectTransform buy = productRect.Find("BuyButton") as RectTransform;
+            if (buy != null)
+            {
+                UIFactory.Anchor(
+                    buy,
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0f, 14f),
+                    new Vector2(188f, 72f));
+                TMP_Text buyLabel = buy.GetComponentInChildren<TMP_Text>(true);
+                if (buyLabel != null)
+                {
+                    buyLabel.fontSize = 24f;
+                }
+            }
+        }
+
+        private static void LayoutShapesPackCard(RectTransform productRect)
+        {
+            if (productRect == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                productRect,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, PackCardY),
+                new Vector2(ShopProductWidth, PackCardHeight));
         }
 
         private static void CreateShapesPackCard(RectTransform shopCard)
@@ -849,12 +995,7 @@ namespace BlockPuzzle.Bootstrap
 
             Image product = UIFactory.CreateImage("ShapesPack1Card", shopCard, GameTheme.EmptyCell);
             RectTransform productRect = product.rectTransform;
-            UIFactory.Anchor(
-                productRect,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -838f),
-                new Vector2(680f, 230f));
+            LayoutShapesPackCard(productRect);
 
             TextMeshProUGUI productTitle = UIFactory.CreateText(
                 "Title",
@@ -912,74 +1053,47 @@ namespace BlockPuzzle.Bootstrap
                 return;
             }
 
+            bool free = theme.Id == ThemeConfig.DefaultId;
             Image product = UIFactory.CreateImage(objectName, parent, GameTheme.EmptyCell);
             RectTransform productRect = product.rectTransform;
-            UIFactory.Anchor(
-                productRect,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                position,
-                new Vector2(330f, 390f));
 
             CreateThemeSwatch(productRect, theme);
 
-            TextMeshProUGUI productTitle = UIFactory.CreateText(
+            UIFactory.CreateText(
                 "Title",
                 productRect,
                 theme.DisplayName,
-                34f,
+                26f,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
                 FontStyles.Bold);
-            UIFactory.Anchor(
-                productTitle.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -118f),
-                new Vector2(300f, 48f));
 
             TextMeshProUGUI priceText = UIFactory.CreateText(
                 "Price",
                 productRect,
                 "Покупка",
-                26f,
+                20f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,
                 FontStyles.Normal);
-            UIFactory.Anchor(
-                priceText.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -164f),
-                new Vector2(300f, 36f));
+            priceText.gameObject.SetActive(!free);
 
-            Button buy = UIFactory.CreateButton(
+            UIFactory.CreateButton(
                 "BuyButton",
                 productRect,
-                "Купить",
+                free ? "Выбрать" : "Купить",
                 theme.Accent,
                 GameTheme.FromHex("#1a1a2e"),
-                30f);
-            UIFactory.Anchor(
-                (RectTransform)buy.transform,
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0f, 18f),
-                new Vector2(280f, 86f));
+                24f);
+
+            LayoutThemeProductCard(productRect, position);
         }
 
         private static void CreateThemeSwatch(RectTransform parent, ThemeConfig theme)
         {
             Image icon = UIFactory.CreateImage("Icon", parent, theme.BackgroundBottom);
-            UIFactory.Anchor(
-                icon.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -22f),
-                new Vector2(88f, 88f));
-
-            float square = 36f;
-            float gap = 6f;
+            float square = 28f;
+            float gap = 4f;
             float startX = -(square + gap) * 0.5f;
             Color[] swatches = { theme.BackgroundTop, theme.EmptyCell, theme.Accent };
             for (int i = 0; i < 2; i++)
@@ -988,9 +1102,42 @@ namespace BlockPuzzle.Bootstrap
                 {
                     int index = i * 2 + j;
                     Color color = index < swatches.Length ? swatches[index] : theme.StartingBlock;
-                    Image squareImage = UIFactory.CreateImage($"Swatch_{i}_{j}", icon.rectTransform, color);
+                    UIFactory.CreateImage($"Swatch_{i}_{j}", icon.rectTransform, color);
+                }
+            }
+
+            LayoutThemeSwatch(icon.rectTransform);
+        }
+
+        private static void LayoutThemeSwatch(RectTransform icon)
+        {
+            if (icon == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                icon,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -14f),
+                new Vector2(ThemeIconSize, ThemeIconSize));
+
+            float square = 28f;
+            float gap = 4f;
+            float startX = -(square + gap) * 0.5f;
+            for (int i = 0; i < 2; i++)
+            {
+                for (int j = 0; j < 2; j++)
+                {
+                    RectTransform swatch = icon.Find($"Swatch_{i}_{j}") as RectTransform;
+                    if (swatch == null)
+                    {
+                        continue;
+                    }
+
                     UIFactory.Anchor(
-                        squareImage.rectTransform,
+                        swatch,
                         new Vector2(0.5f, 0.5f),
                         new Vector2(0.5f, 0.5f),
                         new Vector2(startX + j * (square + gap), (square + gap) * 0.5f - i * (square + gap)),
@@ -1050,7 +1197,7 @@ namespace BlockPuzzle.Bootstrap
                 slots[i] = UIFactory.CreateRect($"Slot_{i}", area);
             }
 
-            // The spawner owns the row layout, so slots stay evenly spread whatever the area size.
+            // The spawner owns the row layout: even spread on portrait, a centred cluster on desktop.
             var spawner = area.gameObject.AddComponent<ShapeSpawner>();
             spawner.Configure(grid, dragLayer, slots, library);
             spawner.SetPiecePrefab(piecePrefab);

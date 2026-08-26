@@ -19,12 +19,12 @@ namespace BlockPuzzle.EditorTools
         public const string BgOceanPath = Folder + "/BgOcean.png";
         public const string BgCandyPath = Folder + "/BgCandy.png";
 
-        public const string BlockClassicGuid = "c8f3a1b24d5e6f708192a3b4c5d6e701";
-        public const string BlockOceanGuid = "c8f3a1b24d5e6f708192a3b4c5d6e702";
-        public const string BlockCandyGuid = "c8f3a1b24d5e6f708192a3b4c5d6e703";
-        public const string BgClassicGuid = "c8f3a1b24d5e6f708192a3b4c5d6e704";
-        public const string BgOceanGuid = "c8f3a1b24d5e6f708192a3b4c5d6e705";
-        public const string BgCandyGuid = "c8f3a1b24d5e6f708192a3b4c5d6e706";
+        public const string BlockClassicGuid = "c5f5765ac27fbf345a7daafe6017ece7";
+        public const string BlockOceanGuid = "a18e73a8bf38d694b873e2e7cc79fea1";
+        public const string BlockCandyGuid = "0f7bcc6c107a547489a59bb4c0acdad5";
+        public const string BgClassicGuid = "bae99b6cbd283f443934486ac3c32095";
+        public const string BgOceanGuid = "06a04715265810546992011341b40e77";
+        public const string BgCandyGuid = "da749fda472104b419c7647b598a7057";
 
         private const int BlockSize = 32;
         private const int BackgroundSize = 64;
@@ -57,6 +57,7 @@ namespace BlockPuzzle.EditorTools
         {
             if (!force && File.Exists(path))
             {
+                ConfigureImporter(path, size);
                 return AssetDatabase.LoadAssetAtPath<Sprite>(path);
             }
 
@@ -68,10 +69,35 @@ namespace BlockPuzzle.EditorTools
             File.WriteAllBytes(path, texture.EncodeToPNG());
             Object.DestroyImmediate(texture);
 
-            WriteMeta(path, guid, size);
+            string metaPath = path + ".meta";
+            string resolvedGuid = ReadExistingGuid(metaPath) ?? guid;
+            if (!File.Exists(metaPath))
+            {
+                WriteMeta(path, resolvedGuid, size);
+            }
+
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             ConfigureImporter(path, size);
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static string ReadExistingGuid(string metaPath)
+        {
+            if (!File.Exists(metaPath))
+            {
+                return null;
+            }
+
+            foreach (string line in File.ReadLines(metaPath))
+            {
+                if (line.StartsWith("guid: "))
+                {
+                    string value = line.Substring(6).Trim();
+                    return string.IsNullOrEmpty(value) ? null : value;
+                }
+            }
+
+            return null;
         }
 
         private static void WriteMeta(string path, string guid, int size)
@@ -93,6 +119,7 @@ namespace BlockPuzzle.EditorTools
                 "    wrapU: 0\n" +
                 "    wrapV: 0\n" +
                 "    wrapW: 0\n" +
+                "  spriteMeshType: 0\n" +
                 "  maxTextureSize: " + maxSize + "\n");
         }
 
@@ -105,6 +132,19 @@ namespace BlockPuzzle.EditorTools
             }
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
+
+            TextureImporterSettings settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.textureType = TextureImporterType.Sprite;
+            settings.spriteMode = (int)SpriteImportMode.Single;
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            settings.spritePixelsPerUnit = 100f;
+            settings.alphaIsTransparency = true;
+            settings.mipmapEnabled = false;
+            settings.filterMode = FilterMode.Bilinear;
+            settings.wrapMode = TextureWrapMode.Repeat;
+            importer.SetTextureSettings(settings);
+
             importer.spriteBorder = Vector4.zero;
             importer.spritePixelsPerUnit = 100f;
             importer.mipmapEnabled = false;
@@ -112,7 +152,7 @@ namespace BlockPuzzle.EditorTools
             importer.filterMode = FilterMode.Bilinear;
             importer.wrapMode = TextureWrapMode.Repeat;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
-            importer.maxTextureSize = Mathf.NextPowerOfTwo(size);
+            importer.maxTextureSize = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(1, size)));
             importer.SaveAndReimport();
         }
 

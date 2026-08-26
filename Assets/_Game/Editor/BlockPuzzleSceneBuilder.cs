@@ -25,7 +25,7 @@ namespace BlockPuzzle.EditorTools
         /// pause button or effect layer would never reach a project that already has a scene
         /// on disk — this stamp is what tells the setup to bake it again.
         /// </summary>
-        public const int SceneVersion = 16;
+        public const int SceneVersion = 17;
 
         private static string VersionKey => $"BlockPuzzle.SceneVersion.{Application.dataPath.GetHashCode():X}";
 

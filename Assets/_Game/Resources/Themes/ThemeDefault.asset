@@ -28,6 +28,6 @@ MonoBehaviour:
   - {r: 0.98039216, g: 0.84313726, b: 0.627451, a: 1}
   - {r: 0.9607843, g: 0.7176471, b: 0.69411767, a: 1}
   - {r: 0.84313726, g: 0.7411765, b: 0.8862745, a: 1}
-  blockPattern: {fileID: 21300000, guid: fb1b11ff7a219854ca1dfc151209b03f, type: 3}
-  backgroundPattern: {fileID: 21300000, guid: bd976ec0e48529940a59e54cca72c368, type: 3}
+  blockPattern: {fileID: 21300000, guid: c5f5765ac27fbf345a7daafe6017ece7, type: 3}
+  backgroundPattern: {fileID: 21300000, guid: bae99b6cbd283f443934486ac3c32095, type: 3}
   backgroundPatternAlpha: 0.14

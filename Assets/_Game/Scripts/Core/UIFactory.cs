@@ -108,6 +108,7 @@ namespace BlockPuzzle.Core
             colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
             colors.fadeDuration = 0.08f;
             button.colors = colors;
+            ButtonPressAnimator.Attach(button);
 
             TextMeshProUGUI label = CreateText(
                 "Label", image.rectTransform, caption, fontSize, labelColor, TextAlignmentOptions.Center, FontStyles.Bold);

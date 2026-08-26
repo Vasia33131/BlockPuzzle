@@ -111,12 +111,13 @@ namespace BlockPuzzle.Managers
 
             ResumeTime();
 
+            boosterController?.ResetContinue();
+            boosterController?.ResetRun();
             gridManager?.StartGame();
             scoreManager?.ResetScore();
             shapeSpawner?.Restart();
             gameOverHandler?.Arm();
             undoBuffer?.Clear();
-            boosterController?.ResetContinue();
 
             SetState(GameState.Playing);
             shapeSpawner?.SetInteractable(true);

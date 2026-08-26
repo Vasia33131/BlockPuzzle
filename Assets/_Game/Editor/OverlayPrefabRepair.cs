@@ -10,7 +10,7 @@ namespace BlockPuzzle.EditorTools
     [InitializeOnLoad]
     public static class OverlayPrefabRepair
     {
-        private const string SessionKey = "BlockPuzzle.OverlayPrefabRepair.ShapesPack1.Ran";
+        private const string SessionKey = "BlockPuzzle.OverlayPrefabRepair.ClassicTheme.Ran";
 
         static OverlayPrefabRepair()
         {
@@ -33,7 +33,9 @@ namespace BlockPuzzle.EditorTools
             GameObject shop = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabGenerator.ShopPanelPath);
             bool missingShop = shop == null;
             bool staleShop = shop != null &&
-                (shop.transform.Find("Card/ThemeOceanCard") == null ||
+                ((shop.transform.Find("Card/ThemeClassicCard") == null &&
+                  shop.transform.Find("Card/ThemeDefaultCard") == null) ||
+                 shop.transform.Find("Card/ThemeOceanCard") == null ||
                  shop.transform.Find("Card/ShapesPack1Card") == null);
             if (!missingGameOver && !missingPause && !missingShop && !staleShop)
             {
@@ -43,7 +45,7 @@ namespace BlockPuzzle.EditorTools
             SessionState.SetBool(SessionKey, true);
             PrefabGenerator.RegenerateOverlayPanels();
             AssetDatabase.SaveAssets();
-            Debug.Log("[Block Puzzle] Restored overlay prefabs (GameOverPanel, PausePanel, ShopPanel with themes and shape pack).");
+            Debug.Log("[Block Puzzle] Restored overlay prefabs (GameOverPanel, PausePanel, ShopPanel with classic theme, paid themes and shape pack).");
         }
     }
 }

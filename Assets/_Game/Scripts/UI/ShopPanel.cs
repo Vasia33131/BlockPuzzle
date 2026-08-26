@@ -9,8 +9,9 @@ using BlockPuzzle.Managers;
 namespace BlockPuzzle.UI
 {
     /// <summary>
-    /// Overlay opened from the HUD shop button. Products: remove ads, the two
-    /// paid palettes <see cref="ThemeConfig.OceanId"/> and <see cref="ThemeConfig.CandyId"/>,
+    /// Overlay opened from the HUD shop button. Products: remove ads, the free
+    /// classic palette <see cref="ThemeConfig.DefaultId"/>, the two paid palettes
+    /// <see cref="ThemeConfig.OceanId"/> and <see cref="ThemeConfig.CandyId"/>,
     /// and the extra-figure pack <see cref="PlayerProgress.ShapesPack1Id"/>.
     /// Buy labels stay "Покупка" until platform code supplies the catalog price from the SDK.
     /// </summary>
@@ -35,7 +36,7 @@ namespace BlockPuzzle.UI
 
         private TMP_Text buyLabel;
         private readonly Dictionary<string, string> catalogPrices = new Dictionary<string, string>(StringComparer.Ordinal);
-        private readonly List<ThemeCard> themeCards = new List<ThemeCard>(2);
+        private readonly List<ThemeCard> themeCards = new List<ThemeCard>(3);
         private ThemeCard packCard;
         private bool visible;
 
@@ -380,21 +381,26 @@ namespace BlockPuzzle.UI
         private void CollectThemeCards()
         {
             themeCards.Clear();
+            if (!AddThemeCard(ThemeConfig.DefaultId, "ThemeClassicCard"))
+            {
+                AddThemeCard(ThemeConfig.DefaultId, "ThemeDefaultCard");
+            }
+
             AddThemeCard(ThemeConfig.OceanId, "ThemeOceanCard");
             AddThemeCard(ThemeConfig.CandyId, "ThemeCandyCard");
         }
 
-        private void AddThemeCard(string themeId, string objectName)
+        private bool AddThemeCard(string themeId, string objectName)
         {
             if (card == null)
             {
-                return;
+                return false;
             }
 
             Transform root = card.Find(objectName);
             if (root == null)
             {
-                return;
+                return false;
             }
 
             Button action = root.Find("BuyButton")?.GetComponent<Button>();
@@ -406,6 +412,7 @@ namespace BlockPuzzle.UI
                 ActionButton = action,
                 ActionLabel = action != null ? action.GetComponentInChildren<TMP_Text>(true) : null
             });
+            return true;
         }
 
         private void BindThemeCards()

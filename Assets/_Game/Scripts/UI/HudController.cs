@@ -54,8 +54,25 @@ namespace BlockPuzzle.UI
             scoreManager.BestScoreChanged += HandleBestScoreChanged;
             scoreManager.LinesCleared += HandleLinesCleared;
 
+            FitHudNumber(scoreValue);
+            FitHudNumber(bestValue);
+
             HandleScoreChanged(scoreManager.Score);
             HandleBestScoreChanged(scoreManager.BestScore);
+        }
+
+        private static void FitHudNumber(TMP_Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 16f;
+            text.fontSizeMax = Mathf.Max(36f, text.fontSize);
         }
 
         private void OnDestroy() => Unbind();

@@ -48,6 +48,7 @@ namespace BlockPuzzle.Bootstrap
 
             UIManager existingUi = FindObjectOfType<UIManager>();
             existingUi?.FixLayoutForPC();
+            ButtonPressAnimator.AttachAll(FindObjectOfType<Canvas>()?.transform);
         }
 
         private void ApplyMobileSettings()

@@ -450,11 +450,10 @@ namespace BlockPuzzle.UI
                 {
                     text.alignment = alignment;
                     text.enableWordWrapping = false;
-                    text.overflowMode = TextOverflowModes.Ellipsis;
-                    if (text.fontSize > 40f)
-                    {
-                        text.fontSize = 36f;
-                    }
+                    text.overflowMode = TextOverflowModes.Overflow;
+                    text.enableAutoSizing = true;
+                    text.fontSizeMin = 16f;
+                    text.fontSizeMax = 36f;
                 }
             }
         }
@@ -542,11 +541,22 @@ namespace BlockPuzzle.UI
 
             if (spawnArea != null)
             {
-                spawnArea.anchorMin = new Vector2(0f, 0f);
-                spawnArea.anchorMax = new Vector2(1f, 0f);
                 spawnArea.pivot = new Vector2(0.5f, 0f);
                 spawnArea.anchoredPosition = new Vector2(0f, (isPortrait ? 20f : 10f) + bannerReserve);
-                spawnArea.sizeDelta = new Vector2(0f, spawnHeight);
+
+                if (isPortrait)
+                {
+                    spawnArea.anchorMin = new Vector2(0f, 0f);
+                    spawnArea.anchorMax = new Vector2(1f, 0f);
+                    spawnArea.sizeDelta = new Vector2(0f, spawnHeight);
+                }
+                else
+                {
+                    float trayWidth = cellSize * 8f;
+                    spawnArea.anchorMin = new Vector2(0.5f, 0f);
+                    spawnArea.anchorMax = new Vector2(0.5f, 0f);
+                    spawnArea.sizeDelta = new Vector2(trayWidth, spawnHeight);
+                }
             }
 
             RectTransform booster = safeArea != null ? safeArea.Find("BoosterBar") as RectTransform : null;
@@ -554,12 +564,6 @@ namespace BlockPuzzle.UI
             if (booster != null)
             {
                 boosterReserved = BoosterBar.BarHeight + BoosterBar.TrayGap;
-                booster.anchorMin = new Vector2(0f, 0f);
-                booster.anchorMax = new Vector2(1f, 0f);
-                booster.pivot = new Vector2(0.5f, 0f);
-                float spawnBottom = (isPortrait ? 20f : 10f) + bannerReserve;
-                booster.anchoredPosition = new Vector2(0f, spawnBottom + spawnHeight + BoosterBar.TrayGap);
-                booster.sizeDelta = new Vector2(0f, BoosterBar.BarHeight);
             }
 
             if (gridArea != null)
@@ -575,6 +579,20 @@ namespace BlockPuzzle.UI
                 float bottomHeight = (isPortrait ? 160f : 130f) + bannerReserve + boosterReserved;
                 float offsetY = (bottomHeight - topHeight) / 2f;
                 gridArea.anchoredPosition = new Vector2(0f, offsetY);
+
+                if (booster != null)
+                {
+                    booster.anchorMin = new Vector2(0f, 0f);
+                    booster.anchorMax = new Vector2(1f, 0f);
+                    booster.pivot = new Vector2(0.5f, 0f);
+                    float spawnBottom = (isPortrait ? 20f : 10f) + bannerReserve;
+                    float minY = spawnBottom + spawnHeight + BoosterBar.TrayGap;
+                    float safeHeight = safeArea != null ? Mathf.Max(1f, safeArea.rect.height) : GameTheme.ReferenceHeight;
+                    float gridBottom = safeHeight * 0.5f + offsetY - gridPixelSize * 0.5f;
+                    float desiredY = gridBottom - BoosterBar.BoardGap - BoosterBar.BarHeight;
+                    booster.anchoredPosition = new Vector2(0f, Mathf.Max(minY, desiredY));
+                    booster.sizeDelta = new Vector2(0f, BoosterBar.BarHeight);
+                }
             }
 
             if (gridManager != null)

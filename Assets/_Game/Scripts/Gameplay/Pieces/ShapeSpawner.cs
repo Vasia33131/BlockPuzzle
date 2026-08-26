@@ -18,6 +18,15 @@ namespace BlockPuzzle.Pieces
         /// <summary>Slot size assumed while the canvas layout has not been resolved yet.</summary>
         private const float FallbackSlotSize = 300f;
 
+        /// <summary>Landscape / desktop tray: keep slots roughly this wide so they sit as a group.</summary>
+        private const float CompactSlotMinWidth = 180f;
+
+        /// <summary>Upper bound so a tall landscape tray does not stretch the group back out.</summary>
+        private const float CompactSlotMaxWidth = 230f;
+
+        /// <summary>Slot width as a multiple of tray height on desktop (slightly wider than tall).</summary>
+        private const float CompactSlotAspect = 1.5f;
+
         /// <summary>Delay between the pop-in of two neighbouring figures of a batch.</summary>
         private const float SpawnStagger = 0.06f;
 
@@ -255,7 +264,11 @@ namespace BlockPuzzle.Pieces
             }
         }
 
-        /// <summary>Spreads the slots evenly across the spawn area as a single horizontal row.</summary>
+        /// <summary>
+        /// Lays the slots out in a single row. Portrait / mobile keeps an even spread across
+        /// the tray; desktop landscape clusters them in the centre so they are not scattered
+        /// across a wide screen.
+        /// </summary>
         public void LayoutSlots()
         {
             if (slots == null)
@@ -263,9 +276,27 @@ namespace BlockPuzzle.Pieces
                 return;
             }
 
-            float half = slotSpacing * 0.5f;
+            if (UseCompactSlotRow())
+            {
+                LayoutSlotsCompact();
+                return;
+            }
 
-            for (int i = 0; i < slots.Length; i++)
+            LayoutSlotsSpread();
+        }
+
+        /// <summary>True on landscape (desktop / wide) screens where a full-width tray looks sparse.</summary>
+        private static bool UseCompactSlotRow()
+        {
+            return Screen.width > Screen.height;
+        }
+
+        private void LayoutSlotsSpread()
+        {
+            float half = slotSpacing * 0.5f;
+            int count = slots.Length;
+
+            for (int i = 0; i < count; i++)
             {
                 RectTransform slot = slots[i];
                 if (slot == null)
@@ -273,12 +304,51 @@ namespace BlockPuzzle.Pieces
                     continue;
                 }
 
-                slot.anchorMin = new Vector2(i / (float)slots.Length, 0f);
-                slot.anchorMax = new Vector2((i + 1) / (float)slots.Length, 1f);
+                slot.anchorMin = new Vector2(i / (float)count, 0f);
+                slot.anchorMax = new Vector2((i + 1) / (float)count, 1f);
                 slot.pivot = new Vector2(0.5f, 0.5f);
+                slot.anchoredPosition = Vector2.zero;
+                slot.sizeDelta = Vector2.zero;
                 slot.offsetMin = new Vector2(half, 0f);
                 slot.offsetMax = new Vector2(-half, 0f);
             }
+        }
+
+        private void LayoutSlotsCompact()
+        {
+            var area = (RectTransform)transform;
+            float height = area.rect.height > 1f ? area.rect.height : CompactSlotMinWidth;
+            float areaWidth = area.rect.width;
+            float slotWidth = ResolveCompactSlotWidth(height);
+            int count = slots.Length;
+            float total = count * slotWidth + (count - 1) * slotSpacing;
+
+            if (areaWidth > 1f && total >= areaWidth - 8f)
+            {
+                LayoutSlotsSpread();
+                return;
+            }
+
+            float origin = -total * 0.5f + slotWidth * 0.5f;
+            for (int i = 0; i < count; i++)
+            {
+                RectTransform slot = slots[i];
+                if (slot == null)
+                {
+                    continue;
+                }
+
+                slot.anchorMin = new Vector2(0.5f, 0f);
+                slot.anchorMax = new Vector2(0.5f, 1f);
+                slot.pivot = new Vector2(0.5f, 0.5f);
+                slot.sizeDelta = new Vector2(slotWidth, 0f);
+                slot.anchoredPosition = new Vector2(origin + i * (slotWidth + slotSpacing), 0f);
+            }
+        }
+
+        private static float ResolveCompactSlotWidth(float trayHeight)
+        {
+            return Mathf.Clamp(trayHeight * CompactSlotAspect, CompactSlotMinWidth, CompactSlotMaxWidth);
         }
 
         /// <summary>
@@ -287,7 +357,6 @@ namespace BlockPuzzle.Pieces
         /// </summary>
         public void UpdateShapeSizes(float scaleMultiplier = 1f)
         {
-            EnsureBottomDocked();
             LayoutSlots();
             Canvas.ForceUpdateCanvases();
 
@@ -373,10 +442,19 @@ namespace BlockPuzzle.Pieces
             }
 
             Rect area = ((RectTransform)transform).rect;
-            float width = area.width > 1f
-                ? area.width / SlotCount - slotSpacing
-                : FallbackSlotSize;
             float height = area.height > 1f ? area.height : FallbackSlotSize;
+            float width;
+            if (UseCompactSlotRow())
+            {
+                width = ResolveCompactSlotWidth(height);
+            }
+            else
+            {
+                width = area.width > 1f
+                    ? area.width / SlotCount - slotSpacing
+                    : FallbackSlotSize;
+            }
+
             return new Vector2(width, height);
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,24 +11,30 @@ using BlockPuzzle.Pieces;
 namespace BlockPuzzle.UI
 {
     /// <summary>
-    /// Three rewarded boosters between the board and the figure tray. Each caption
-    /// says that watching an ad is required. Platform code shows the video; this bar
-    /// only raises <see cref="UndoRequested"/>, <see cref="ExtraRequested"/> and
-    /// <see cref="ClearRequested"/>. Hidden while paused or on Game Over.
+    /// Three boosters between the board and the figure tray. Each button is the
+    /// booster sprite itself. A free +1 charge is applied immediately; otherwise
+    /// this bar raises <see cref="UndoRequested"/>, <see cref="ExtraRequested"/>
+    /// and <see cref="ClearRequested"/> so platform code can show a rewarded ad.
+    /// Hidden while paused or on Game Over.
     /// </summary>
     public class BoosterBar : MonoBehaviour
     {
-        public const float BarHeight = 108f;
-        public const float TrayGap = 10f;
+        public const float BarHeight = 160f;
+        public const float TrayGap = 36f;
+        public const float BoardGap = 10f;
 
-        private const float ButtonFontSize = 22f;
-        private const float ButtonSpacing = 12f;
-        private const string UndoCaption = "Отменить ход — реклама";
-        private const string ExtraCaption = "Ещё фигура — реклама";
-        private const string ClearCaption = "Убрать линию — реклама";
+        private const float IconSize = 152f;
+        private const float ButtonSpacing = 130f;
+        private const float BadgeFontSize = 64f;
+        private const string UndoIconPath = "UI/Icons/IconUndo";
+        private const string ExtraIconPath = "UI/Icons/IconExtra";
+        private const string ClearIconPath = "UI/Icons/IconClear";
 
-        private static readonly Color DisabledBackground = new Color(0.32f, 0.32f, 0.38f, 0.95f);
-        private static readonly Color DisabledLabel = new Color(0.62f, 0.62f, 0.7f, 0.9f);
+        private static readonly Color DisabledIcon = new Color(0.72f, 0.72f, 0.76f, 0.5f);
+        private static readonly Color BadgeRed = new Color(1f, 0.08f, 0.12f, 1f);
+        private static readonly Vector2 BadgeSize = new Vector2(120f, 96f);
+        private static readonly Vector2 BadgeOffset = new Vector2(-8f, 8f);
+        private static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private Button undoButton;
@@ -38,9 +45,9 @@ namespace BlockPuzzle.UI
         private Image undoImage;
         private Image extraImage;
         private Image clearImage;
-        private TMP_Text undoLabel;
-        private TMP_Text extraLabel;
-        private TMP_Text clearLabel;
+        private TextMeshProUGUI undoBadge;
+        private TextMeshProUGUI extraBadge;
+        private TextMeshProUGUI clearBadge;
         private GridManager grid;
         private ShapeSpawner spawner;
 
@@ -56,6 +63,7 @@ namespace BlockPuzzle.UI
         private void Awake()
         {
             EnsureCanvasGroup();
+            ApplySpriteButtons();
             if (gameManager != null)
             {
                 Bind(gameManager);
@@ -75,6 +83,7 @@ namespace BlockPuzzle.UI
             Unbind();
             gameManager = manager;
             EnsureCanvasGroup();
+            ApplySpriteButtons();
             CacheButtonParts();
 
             if (gameManager == null)
@@ -163,41 +172,47 @@ namespace BlockPuzzle.UI
 
         private void HandleUndoClicked()
         {
-            if (!IsPlaying())
-            {
-                return;
-            }
-
-            UndoRequested?.Invoke();
+            HandleBoosterClicked(FreeBoosterType.Undo, UndoRequested);
         }
 
         private void HandleExtraClicked()
         {
-            if (!IsPlaying())
-            {
-                return;
-            }
-
-            ExtraRequested?.Invoke();
+            HandleBoosterClicked(FreeBoosterType.Extra, ExtraRequested);
         }
 
         private void HandleClearClicked()
+        {
+            HandleBoosterClicked(FreeBoosterType.Clear, ClearRequested);
+        }
+
+        private void HandleBoosterClicked(FreeBoosterType type, Action rewardedRequest)
         {
             if (!IsPlaying())
             {
                 return;
             }
 
-            ClearRequested?.Invoke();
+            BoosterController boosters = gameManager != null ? gameManager.Boosters : null;
+            if (boosters != null && boosters.HasFree(type))
+            {
+                boosters.TryConsumeFree(type);
+                RefreshAvailability();
+                return;
+            }
+
+            rewardedRequest?.Invoke();
         }
 
         private void RefreshAvailability()
         {
             BoosterController boosters = gameManager != null ? gameManager.Boosters : null;
             bool playing = IsPlaying();
-            ApplyButton(undoButton, undoImage, undoLabel, playing && boosters != null && boosters.CanUndo);
-            ApplyButton(extraButton, extraImage, extraLabel, playing && boosters != null && boosters.CanExtraPiece);
-            ApplyButton(clearButton, clearImage, clearLabel, playing && boosters != null && boosters.CanClearLine);
+            ApplyButton(undoButton, undoImage, playing && boosters != null && boosters.CanUndo);
+            ApplyButton(extraButton, extraImage, playing && boosters != null && boosters.CanExtraPiece);
+            ApplyButton(clearButton, clearImage, playing && boosters != null && boosters.CanClearLine);
+            ApplyBadge(undoBadge, boosters != null && boosters.HasFree(FreeBoosterType.Undo));
+            ApplyBadge(extraBadge, boosters != null && boosters.HasFree(FreeBoosterType.Extra));
+            ApplyBadge(clearBadge, boosters != null && boosters.HasFree(FreeBoosterType.Clear));
         }
 
         private bool IsPlaying() => gameManager != null && gameManager.State == GameState.Playing;
@@ -216,7 +231,7 @@ namespace BlockPuzzle.UI
             canvasGroup.interactable = visible;
         }
 
-        private void ApplyButton(Button button, Image image, TMP_Text label, bool available)
+        private void ApplyButton(Button button, Image image, bool available)
         {
             if (button != null)
             {
@@ -225,12 +240,15 @@ namespace BlockPuzzle.UI
 
             if (image != null)
             {
-                image.color = available ? GameTheme.ButtonSecondary : DisabledBackground;
+                image.color = available ? Color.white : DisabledIcon;
             }
+        }
 
-            if (label != null)
+        private static void ApplyBadge(TextMeshProUGUI badge, bool visible)
+        {
+            if (badge != null)
             {
-                label.color = available ? GameTheme.TextPrimary : DisabledLabel;
+                badge.gameObject.SetActive(visible);
             }
         }
 
@@ -244,29 +262,40 @@ namespace BlockPuzzle.UI
 
         private void CacheButtonParts()
         {
-            CacheButton(undoButton, out undoImage, out undoLabel);
-            CacheButton(extraButton, out extraImage, out extraLabel);
-            CacheButton(clearButton, out clearImage, out clearLabel);
+            undoImage = ResolveImage(undoButton);
+            extraImage = ResolveImage(extraButton);
+            clearImage = ResolveImage(clearButton);
+            undoBadge = ResolveBadge(undoButton);
+            extraBadge = ResolveBadge(extraButton);
+            clearBadge = ResolveBadge(clearButton);
         }
 
-        private static void CacheButton(Button button, out Image image, out TMP_Text label)
+        private static Image ResolveImage(Button button)
         {
-            image = button != null ? button.targetGraphic as Image : null;
-            if (image == null && button != null)
-            {
-                image = button.GetComponent<Image>();
-            }
-
-            label = null;
             if (button == null)
             {
-                return;
+                return null;
             }
 
-            Transform labelTransform = button.transform.Find("Label");
-            label = labelTransform != null
-                ? labelTransform.GetComponent<TMP_Text>()
-                : button.GetComponentInChildren<TMP_Text>(true);
+            Image image = button.targetGraphic as Image;
+            return image != null ? image : button.GetComponent<Image>();
+        }
+
+        private static TextMeshProUGUI ResolveBadge(Button button)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            Transform child = button.transform.Find("Badge");
+            if (child == null)
+            {
+                return null;
+            }
+
+            return child.GetComponent<TextMeshProUGUI>()
+                ?? child.GetComponentInChildren<TextMeshProUGUI>(true);
         }
 
         private static void Listen(Button button, UnityEngine.Events.UnityAction action)
@@ -278,6 +307,193 @@ namespace BlockPuzzle.UI
 
             button.onClick.RemoveListener(action);
             button.onClick.AddListener(action);
+        }
+
+        /// <summary>
+        /// Replaces the baked rounded-rect buttons with the booster sprites. Runs on
+        /// Bind so a scene that was generated before the icons still picks them up.
+        /// </summary>
+        private void ApplySpriteButtons()
+        {
+            HorizontalLayoutGroup layout = GetComponent<HorizontalLayoutGroup>();
+            if (layout != null)
+            {
+                layout.spacing = ButtonSpacing;
+                layout.childAlignment = TextAnchor.MiddleCenter;
+                layout.childControlWidth = true;
+                layout.childControlHeight = true;
+                layout.childForceExpandWidth = false;
+                layout.childForceExpandHeight = false;
+                layout.padding = new RectOffset(0, 0, 0, 0);
+            }
+
+            StyleSpriteButton(undoButton, UndoIconPath);
+            StyleSpriteButton(extraButton, ExtraIconPath);
+            StyleSpriteButton(clearButton, ClearIconPath);
+        }
+
+        private static void StyleSpriteButton(Button button, string iconPath)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.transition = Selectable.Transition.None;
+            ButtonPressAnimator.Attach(button);
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = Color.white;
+            colors.selectedColor = Color.white;
+            colors.pressedColor = Color.white;
+            colors.disabledColor = Color.white;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+
+            Image image = ResolveImage(button);
+            if (image != null)
+            {
+                image.sprite = LoadBoosterSprite(iconPath);
+                image.type = Image.Type.Simple;
+                image.preserveAspect = true;
+                image.color = Color.white;
+                image.raycastTarget = true;
+                image.useSpriteMesh = false;
+            }
+
+            var layoutElement = button.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = button.gameObject.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.flexibleWidth = 0f;
+            layoutElement.flexibleHeight = 0f;
+            layoutElement.minWidth = IconSize;
+            layoutElement.minHeight = IconSize;
+            layoutElement.preferredWidth = IconSize;
+            layoutElement.preferredHeight = IconSize;
+
+            HideChild(button.transform, "Label");
+            HideChild(button.transform, "Icon");
+            EnsureBadge(button);
+        }
+
+        private static TextMeshProUGUI EnsureBadge(Button button)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            Transform existing = button.transform.Find("Badge");
+            TextMeshProUGUI badge = existing != null
+                ? existing.GetComponent<TextMeshProUGUI>() ?? existing.GetComponentInChildren<TextMeshProUGUI>(true)
+                : null;
+
+            if (existing != null)
+            {
+                Image chip = existing.GetComponent<Image>();
+                if (chip != null)
+                {
+                    chip.enabled = false;
+                }
+
+                var plateOutline = existing.GetComponent<Outline>();
+                if (plateOutline != null)
+                {
+                    plateOutline.enabled = false;
+                }
+            }
+
+            if (badge == null)
+            {
+                badge = UIFactory.CreateText(
+                    "Badge",
+                    button.transform,
+                    "+1",
+                    BadgeFontSize,
+                    BadgeRed,
+                    TextAlignmentOptions.Center,
+                    FontStyles.Bold);
+            }
+            else if (badge.transform.parent != button.transform)
+            {
+                Transform oldRoot = badge.transform.parent;
+                badge.transform.SetParent(button.transform, false);
+                badge.gameObject.name = "Badge";
+                if (oldRoot != null)
+                {
+                    oldRoot.name = "BadgeChip";
+                    oldRoot.gameObject.SetActive(false);
+                }
+            }
+
+            badge.text = "+1";
+            badge.fontSize = BadgeFontSize;
+            badge.fontStyle = FontStyles.Bold;
+            badge.alignment = TextAlignmentOptions.Center;
+            badge.color = BadgeRed;
+            badge.raycastTarget = false;
+            badge.enableWordWrapping = false;
+            badge.overflowMode = TextOverflowModes.Overflow;
+            badge.extraPadding = true;
+            badge.outlineWidth = 0.22f;
+            badge.outlineColor = BadgeRed;
+            if (badge.fontMaterial != null)
+            {
+                badge.fontMaterial.EnableKeyword("OUTLINE_ON");
+            }
+
+            UIFactory.Anchor(
+                badge.rectTransform,
+                new Vector2(0f, 1f),
+                new Vector2(0.5f, 0.5f),
+                BadgeOffset,
+                BadgeSize);
+
+            badge.gameObject.SetActive(false);
+            return badge;
+        }
+
+        private static void HideChild(Transform parent, string childName)
+        {
+            Transform child = parent != null ? parent.Find(childName) : null;
+            if (child != null)
+            {
+                child.gameObject.SetActive(false);
+            }
+        }
+
+        private static Sprite LoadBoosterSprite(string resourcePath)
+        {
+            if (spriteCache.TryGetValue(resourcePath, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Sprite sprite = Resources.Load<Sprite>(resourcePath);
+            if (sprite == null)
+            {
+                Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+                if (texture != null)
+                {
+                    sprite = Sprite.Create(
+                        texture,
+                        new Rect(0f, 0f, texture.width, texture.height),
+                        new Vector2(0.5f, 0.5f),
+                        100f,
+                        0,
+                        SpriteMeshType.FullRect);
+                }
+            }
+
+            if (sprite != null)
+            {
+                spriteCache[resourcePath] = sprite;
+            }
+
+            return sprite;
         }
 
         /// <summary>Builds the three-button row between the board and the figure tray.</summary>
@@ -294,44 +510,25 @@ namespace BlockPuzzle.UI
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
             layout.padding = new RectOffset(0, 0, 0, 0);
 
-            Button undo = CreateBoosterButton(root, "UndoButton", UndoCaption);
-            Button extra = CreateBoosterButton(root, "ExtraButton", ExtraCaption);
-            Button clear = CreateBoosterButton(root, "ClearButton", ClearCaption);
+            Button undo = CreateBoosterButton(root, "UndoButton", UndoIconPath);
+            Button extra = CreateBoosterButton(root, "ExtraButton", ExtraIconPath);
+            Button clear = CreateBoosterButton(root, "ClearButton", ClearIconPath);
 
             var bar = root.gameObject.AddComponent<BoosterBar>();
             bar.Bind(manager, undo, extra, clear);
             return bar;
         }
 
-        private static Button CreateBoosterButton(Transform parent, string name, string caption)
+        private static Button CreateBoosterButton(Transform parent, string name, string iconPath)
         {
-            Button button = UIFactory.CreateButton(
-                name, parent, caption, GameTheme.ButtonSecondary, GameTheme.TextPrimary, ButtonFontSize);
-
-            var layoutElement = button.gameObject.AddComponent<LayoutElement>();
-            layoutElement.flexibleWidth = 1f;
-            layoutElement.minHeight = 72f;
-
-            ColorBlock colors = button.colors;
-            colors.highlightedColor = new Color(1f, 1f, 1f, 0.9f);
-            colors.pressedColor = new Color(0.8f, 0.8f, 0.9f, 1f);
-            colors.disabledColor = Color.white;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
-
-            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-            {
-                label.enableWordWrapping = true;
-                label.overflowMode = TextOverflowModes.Ellipsis;
-                label.fontSize = ButtonFontSize;
-                UIFactory.Stretch(label.rectTransform, 8f);
-            }
-
+            Image image = UIFactory.CreateImage(name, parent, Color.white, rounded: false);
+            var button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            StyleSpriteButton(button, iconPath);
             return button;
         }
     }

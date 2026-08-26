@@ -41,8 +41,8 @@ namespace BlockPuzzle.Core
         public Color EmptyCell => emptyCell;
         public Color StartingBlock => startingBlock;
         public Color Accent => accent;
-        public Sprite BlockPattern => blockPattern;
-        public Sprite BackgroundPattern => backgroundPattern;
+        public Sprite BlockPattern => blockPattern != null ? blockPattern : LoadSprite(ResolveBlockPatternPath());
+        public Sprite BackgroundPattern => backgroundPattern != null ? backgroundPattern : LoadSprite(ResolveBackgroundPatternPath());
         public float BackgroundPatternAlpha => Mathf.Clamp01(backgroundPatternAlpha);
 
         /// <summary>
@@ -161,6 +161,40 @@ namespace BlockPuzzle.Core
             config.backgroundPatternAlpha = Mathf.Clamp01(backdropAlpha);
             return config;
         }
+
+        private static string ResolveBlockPatternPath(string themeId)
+        {
+            if (themeId == OceanId)
+            {
+                return OceanBlockPatternPath;
+            }
+
+            if (themeId == CandyId)
+            {
+                return CandyBlockPatternPath;
+            }
+
+            return DefaultBlockPatternPath;
+        }
+
+        private static string ResolveBackgroundPatternPath(string themeId)
+        {
+            if (themeId == OceanId)
+            {
+                return OceanBackgroundPatternPath;
+            }
+
+            if (themeId == CandyId)
+            {
+                return CandyBackgroundPatternPath;
+            }
+
+            return DefaultBackgroundPatternPath;
+        }
+
+        private string ResolveBlockPatternPath() => ResolveBlockPatternPath(Id);
+
+        private string ResolveBackgroundPatternPath() => ResolveBackgroundPatternPath(Id);
 
         private static Color[] CopyPalette(Color[] source)
         {
