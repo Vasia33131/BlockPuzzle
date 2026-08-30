@@ -19,8 +19,6 @@ namespace BlockPuzzle.UI
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
         private const float PauseCardHeight = 700f;
-        private const string SoundOnLabel = "ЗВУК: ВКЛ";
-        private const string SoundOffLabel = "ЗВУК: ВЫКЛ";
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -86,8 +84,9 @@ namespace BlockPuzzle.UI
             Listen(resumeButton, HandleResumeClicked);
             Listen(restartButton, HandleRestartClicked);
             Listen(soundButton, HandleSoundClicked);
+            GameLocalization.LanguageChanged += HandleLanguageChanged;
 
-            RefreshSoundLabel();
+            RefreshLocalizedTexts();
             SetVisible(false);
             HandleStateChanged(gameManager.State);
         }
@@ -106,6 +105,7 @@ namespace BlockPuzzle.UI
             resumeButton?.onClick.RemoveListener(HandleResumeClicked);
             restartButton?.onClick.RemoveListener(HandleRestartClicked);
             soundButton?.onClick.RemoveListener(HandleSoundClicked);
+            GameLocalization.LanguageChanged -= HandleLanguageChanged;
             audioManager = null;
         }
 
@@ -155,7 +155,22 @@ namespace BlockPuzzle.UI
             }
 
             bool muted = audioManager != null && audioManager.IsMuted;
-            soundLabel.text = muted ? SoundOffLabel : SoundOnLabel;
+            soundLabel.text = muted ? GameLocalization.SoundOff : GameLocalization.SoundOn;
+        }
+
+        private void HandleLanguageChanged() => RefreshLocalizedTexts();
+
+        private void RefreshLocalizedTexts()
+        {
+            ResolveCard();
+            if (card != null)
+            {
+                UIFactory.SetText(card.Find("Title")?.GetComponent<TMP_Text>(), GameLocalization.PauseTitle);
+            }
+
+            UIFactory.SetButtonText(resumeButton, GameLocalization.Resume);
+            UIFactory.SetButtonText(restartButton, GameLocalization.Restart);
+            RefreshSoundLabel();
         }
 
         private void HandleStateChanged(GameState state)
@@ -167,6 +182,7 @@ namespace BlockPuzzle.UI
 
             if (state == GameState.Paused)
             {
+                RefreshLocalizedTexts();
                 RefreshSoundLabel();
                 Show();
             }
@@ -289,7 +305,7 @@ namespace BlockPuzzle.UI
             soundButton = UIFactory.CreateButton(
                 "SoundButton",
                 card,
-                SoundOnLabel,
+                GameLocalization.SoundOn,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
                 34f);

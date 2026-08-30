@@ -300,6 +300,12 @@
                 ysdk.on('game_api_pause', PauseCallback);
                 ysdk.on('game_api_resume', ResumeCallback);
 
+                // Requirement 2.14: the debug-panel 文 indicator turns green only if
+                // environment.i18n.lang is read at SDK init, not after Unity loads.
+                if (ysdk.environment && ysdk.environment.i18n) {
+                    window.__ysdkLang = ysdk.environment.i18n.lang;
+                }
+
                 // Additional init0 modules
 
                 // Additional init1 modules

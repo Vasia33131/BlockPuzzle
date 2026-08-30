@@ -24,7 +24,7 @@ MonoBehaviour:
     languages:
       ru: 1
       en: 1
-      tr: 1
+      tr: 0
       az: 0
       be: 0
       he: 0
@@ -298,37 +298,16 @@ MonoBehaviour:
         extraData: 
   Localization:
     setLanguageMod: 1
-  Basic:
-    platform: {fileID: 11400000, guid: c2a303d33a9fd394bae4c4b88b9a1c44, type: 2}
-    autoApplySettings: 1
-    autoPauseGame: 1
-    editTimeScale: 1
-    editEventSystem: 1
-    autoGRA: 0
-    logInEditor: 1
-    archivingBuild: 1
-    autoDefineSymbols: 1
-    syncInitSDK: 0
-    loadSceneIfSDKLate: 0
-    loadSceneIndex: 0
-    initDelaySimulation: 0
-    buildNumber: 6
-  Simulation:
-    device: 0
-    language: ru
-    enableInterAdv: 1
-    advIntervalSimulation: 60
-    durationAdv: 0.5
-    loadAdv: 0
-    testFailAds: 0
-    pauseOnFocusGame: 0
   Payments:
     durationPayPanel: 1
     testBuyFail: 0
     purshases:
     - id: no_ads
       title: "\u0411\u0435\u0437 \u0440\u0435\u043A\u043B\u0430\u043C\u044B"
-      description: "\u041E\u0442\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043F\u043E\u043B\u043D\u043E\u044D\u043A\u0440\u0430\u043D\u043D\u0443\u044E \u0440\u0435\u043A\u043B\u0430\u043C\u0443 \u0438 \u0431\u0430\u043D\u043D\u0435\u0440. \u0412\u0438\u0434\u0435\u043E \u0437\u0430 \u043D\u0430\u0433\u0440\u0430\u0434\u0443 \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F"
+      description: "\u041E\u0442\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043F\u043E\u043B\u043D\u043E\u044D\u043A\u0440\u0430\u043D\u043D\u0443\u044E
+        \u0440\u0435\u043A\u043B\u0430\u043C\u0443 \u0438 \u0431\u0430\u043D\u043D\u0435\u0440.
+        \u0412\u0438\u0434\u0435\u043E \u0437\u0430 \u043D\u0430\u0433\u0440\u0430\u0434\u0443
+        \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F"
       imageURI: demo image
       price: 79 YAN
       priceValue: 79
@@ -336,7 +315,7 @@ MonoBehaviour:
       currencyImageURL: https://yastatic.net/s3/games-static/static-data/images/payments/sdk/currency-icon-s@2x.png
       consumed: 1
     - id: theme_ocean
-      title: "\u0422\u0435\u043C\u0430 \u00AB\u041E\u043A\u0435\u0430\u043D\u00BB"
+      title: "\u0422\u0435\u043C\u0430 \xAB\u041E\u043A\u0435\u0430\u043D\xBB"
       description: "\u041D\u043E\u0432\u044B\u0439 \u0446\u0432\u0435\u0442 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u044F"
       imageURI: demo image
       price: 49 YAN
@@ -345,7 +324,7 @@ MonoBehaviour:
       currencyImageURL: https://yastatic.net/s3/games-static/static-data/images/payments/sdk/currency-icon-s@2x.png
       consumed: 1
     - id: theme_candy
-      title: "\u0422\u0435\u043C\u0430 \u00AB\u041A\u043E\u043D\u0444\u0435\u0442\u044B\u00BB"
+      title: "\u0422\u0435\u043C\u0430 \xAB\u041A\u043E\u043D\u0444\u0435\u0442\u044B\xBB"
       description: "\u041D\u043E\u0432\u044B\u0439 \u0446\u0432\u0435\u0442 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u044F"
       imageURI: demo image
       price: 49 YAN
@@ -363,6 +342,37 @@ MonoBehaviour:
       priceCurrencyCode: YAN
       currencyImageURL: https://yastatic.net/s3/games-static/static-data/images/payments/sdk/currency-icon-s@2x.png
       consumed: 1
+  RewardedAdv:
+    skipInterAdvAfterReward: 0
+    labelAdvSimLabel: 0
+  Storage:
+    saveLocal: 0
+    saveCloud: 1
+    flush: 0
+  Basic:
+    platform: {fileID: 11400000, guid: c2a303d33a9fd394bae4c4b88b9a1c44, type: 2}
+    autoApplySettings: 1
+    autoPauseGame: 1
+    editTimeScale: 1
+    editEventSystem: 1
+    autoGRA: 0
+    logInEditor: 1
+    archivingBuild: 1
+    autoDefineSymbols: 1
+    syncInitSDK: 0
+    loadSceneIfSDKLate: 0
+    loadSceneIndex: 0
+    initDelaySimulation: 0
+    buildNumber: 9
+  Simulation:
+    device: 0
+    language: en
+    enableInterAdv: 1
+    advIntervalSimulation: 60
+    durationAdv: 0.5
+    loadAdv: 0
+    testFailAds: 0
+    pauseOnFocusGame: 0
   Templates:
     logoImageFormat: 0
     backgroundImgFormat: 0
@@ -400,6 +410,9 @@ MonoBehaviour:
     interAdvInterval: 0
     postponeCallByFail: 0
     setLanguageMod: 0
+    skipInterAdvAfterReward: 0
+    saveLocal: 0
+    saveCloud: 0
     autoPauseGame: 0
     selectWebGLTemplate: 1
     runInBackground: 1

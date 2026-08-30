@@ -21,8 +21,6 @@ namespace BlockPuzzle.UI
 
         private const float ComboFade = 0.45f;
         private const float PopDuration = 0.18f;
-        private const string ScorePrefix = "СЧЁТ: ";
-        private const string BestPrefix = "РЕКОРД: ";
 
         private void Awake()
         {
@@ -53,6 +51,7 @@ namespace BlockPuzzle.UI
             scoreManager.ScoreChanged += HandleScoreChanged;
             scoreManager.BestScoreChanged += HandleBestScoreChanged;
             scoreManager.LinesCleared += HandleLinesCleared;
+            GameLocalization.LanguageChanged += HandleLanguageChanged;
 
             FitHudNumber(scoreValue);
             FitHudNumber(bestValue);
@@ -79,6 +78,7 @@ namespace BlockPuzzle.UI
 
         private void Unbind()
         {
+            GameLocalization.LanguageChanged -= HandleLanguageChanged;
             if (scoreManager == null)
             {
                 return;
@@ -90,22 +90,38 @@ namespace BlockPuzzle.UI
             scoreManager = null;
         }
 
-        private void HandleScoreChanged(int value)
+        private void HandleLanguageChanged()
+        {
+            if (scoreManager == null)
+            {
+                return;
+            }
+
+            SetScoreText(scoreManager.Score, punch: false);
+            HandleBestScoreChanged(scoreManager.BestScore);
+        }
+
+        private void HandleScoreChanged(int value) => SetScoreText(value, punch: true);
+
+        private void SetScoreText(int value, bool punch)
         {
             if (scoreValue == null)
             {
                 return;
             }
 
-            scoreValue.text = ScorePrefix + value;
-            GameTween.Punch(scoreValue.rectTransform, 0.18f, PopDuration);
+            scoreValue.text = GameLocalization.ScorePrefix + value;
+            if (punch)
+            {
+                GameTween.Punch(scoreValue.rectTransform, 0.18f, PopDuration);
+            }
         }
 
         private void HandleBestScoreChanged(int value)
         {
             if (bestValue != null)
             {
-                bestValue.text = BestPrefix + value;
+                bestValue.text = GameLocalization.BestPrefix + value;
             }
         }
 
@@ -116,7 +132,7 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            comboLabel.text = combo > 1 ? $"КОМБО x{combo}  +{points}" : $"+{points}";
+            comboLabel.text = GameLocalization.Combo(combo, points);
 
             Color color = combo > 1 ? GameTheme.Accent : GameTheme.TextPrimary;
             color.a = 1f;

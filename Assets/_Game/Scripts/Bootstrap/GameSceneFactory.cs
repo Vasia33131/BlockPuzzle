@@ -17,11 +17,11 @@ namespace BlockPuzzle.Bootstrap
     /// </summary>
     public static class GameSceneFactory
     {
-        private const float TopPanelHeight = 112f;
+        private const float TopPanelHeight = 164f;
         private const float ScreenSideMargin = 16f;
         private const float ScreenTopMargin = 12f;
-        private const float PauseButtonSize = 92f;
-        private const float HudButtonGap = 10f;
+        private const float PauseButtonSize = 148f;
+        private const float HudButtonGap = 12f;
         private const float ScoreSectionWidth = 320f;
         private const float BestSectionWidth = 280f;
         private const float BoardVerticalOffset = 30f;
@@ -37,17 +37,29 @@ namespace BlockPuzzle.Bootstrap
         public const string ThemeCandyCardName = "ThemeCandyCard";
 
         private const float ShopCardWidth = 780f;
-        private const float ShopCardHeight = 1280f;
+        private const float ShopCardHeight = 1320f;
         private const float ShopProductWidth = 680f;
-        private const float NoAdsCardHeight = 250f;
-        private const float NoAdsCardY = -148f;
-        private const float ThemeCardWidth = 216f;
-        private const float ThemeCardHeight = 360f;
-        private const float ThemeCardY = -428f;
-        private const float ThemeCardPitch = 232f;
-        private const float ThemeIconSize = 72f;
-        private const float PackCardHeight = 230f;
-        private const float PackCardY = -838f;
+        private const float ShopTitleFont = 92f;
+        private const float ShopTitleY = -48f;
+        private const float ShopTitleHeight = 104f;
+        private const float NoAdsCardHeight = 276f;
+        private const float NoAdsCardY = -168f;
+        private const float ProductTitleFont = 58f;
+        private const float WideBuyFont = 48f;
+        private const float WideBuyHeight = 108f;
+        private const float WideBuyBottom = 18f;
+        private const float ThemeCardWidth = 224f;
+        private const float ThemeCardHeight = 392f;
+        private const float ThemeCardY = -464f;
+        private const float ThemeCardPitch = 240f;
+        private const float ThemeIconSize = 80f;
+        private const float ThemeTitleFont = 42f;
+        private const float ThemeBuyFont = 34f;
+        private const float ThemeBuyHeight = 90f;
+        private const float PackCardHeight = 256f;
+        private const float PackCardY = -876f;
+        private const float ShopBackFont = 48f;
+        private const float ShopBackHeight = 116f;
 
         /// <summary>Optional authored prefabs used when baking or bootstrapping the scene.</summary>
         public sealed class PrefabSet
@@ -451,7 +463,7 @@ namespace BlockPuzzle.Bootstrap
                 panel,
                 "ScoreSection",
                 "ScoreText",
-                "СЧЁТ: 0",
+                GameLocalization.ScorePrefix + "0",
                 new Vector2(0f, 0.5f),
                 new Vector2(0f, 0.5f),
                 new Vector2(20f, 0f),
@@ -462,7 +474,7 @@ namespace BlockPuzzle.Bootstrap
                 panel,
                 "BestSection",
                 "BestText",
-                "РЕКОРД: 0",
+                GameLocalization.BestPrefix + "0",
                 new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f),
                 Vector2.zero,
@@ -528,7 +540,7 @@ namespace BlockPuzzle.Bootstrap
         private static Button CreatePauseButton(RectTransform parent)
         {
             Image background = UIFactory.CreateImage(
-                "PauseButton", parent, GameTheme.WithAlpha(GameTheme.CardBackground, 0.9f));
+                "PauseButton", parent, GameTheme.HudButton);
 
             UIFactory.Anchor(
                 background.rectTransform,
@@ -544,16 +556,11 @@ namespace BlockPuzzle.Bootstrap
             // Two bars drawn from plain rects, so the icon needs no texture of its own.
             for (int i = 0; i < 2; i++)
             {
-                Image bar = UIFactory.CreateImage($"Bar_{i}", background.rectTransform, GameTheme.TextPrimary);
+                Image bar = UIFactory.CreateImage($"Bar_{i}", background.rectTransform, GameTheme.HudButtonIcon);
                 bar.raycastTarget = false;
-                UIFactory.Anchor(
-                    bar.rectTransform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(i == 0 ? -7f : 7f, 0f),
-                    new Vector2(7f, 24f));
             }
 
+            LayoutPauseBars(background.rectTransform, PauseButtonSize);
             return button;
         }
 
@@ -563,7 +570,7 @@ namespace BlockPuzzle.Bootstrap
         private static Button CreateHudShopButton(RectTransform parent)
         {
             Image background = UIFactory.CreateImage(
-                "ShopButton", parent, GameTheme.WithAlpha(GameTheme.CardBackground, 0.9f));
+                "ShopButton", parent, GameTheme.HudButton);
 
             float x = -(15f + PauseButtonSize + HudButtonGap);
             UIFactory.Anchor(
@@ -582,35 +589,98 @@ namespace BlockPuzzle.Bootstrap
 
         private static void CreateShopCartIcon(RectTransform parent)
         {
-            Image body = UIFactory.CreateImage("CartBody", parent, GameTheme.TextPrimary);
+            Image body = UIFactory.CreateImage("CartBody", parent, GameTheme.HudButtonIcon);
             body.raycastTarget = false;
-            UIFactory.Anchor(
-                body.rectTransform,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
-                new Vector2(-2f, -1f),
-                new Vector2(26f, 16f));
 
             for (int i = 0; i < 2; i++)
             {
-                Image wheel = UIFactory.CreateImage($"Wheel_{i}", parent, GameTheme.TextPrimary);
+                Image wheel = UIFactory.CreateImage($"Wheel_{i}", parent, GameTheme.HudButtonIcon);
                 wheel.raycastTarget = false;
-                UIFactory.Anchor(
-                    wheel.rectTransform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(i == 0 ? -8f : 6f, -14f),
-                    new Vector2(8f, 8f));
             }
 
-            Image handle = UIFactory.CreateImage("CartHandle", parent, GameTheme.TextPrimary);
+            Image handle = UIFactory.CreateImage("CartHandle", parent, GameTheme.HudButtonIcon);
             handle.raycastTarget = false;
-            UIFactory.Anchor(
-                handle.rectTransform,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
-                new Vector2(12f, 6f),
-                new Vector2(4f, 14f));
+            LayoutShopCart(parent, PauseButtonSize);
+        }
+
+        private static void LayoutPauseBars(RectTransform pause, float size)
+        {
+            if (pause == null)
+            {
+                return;
+            }
+
+            float barWidth = Mathf.Max(8f, size * 0.14f);
+            float barHeight = Mathf.Max(22f, size * 0.50f);
+            float offset = Mathf.Max(8f, size * 0.15f);
+
+            for (int i = 0; i < 2; i++)
+            {
+                var bar = pause.Find($"Bar_{i}") as RectTransform;
+                if (bar == null)
+                {
+                    continue;
+                }
+
+                UIFactory.Anchor(
+                    bar,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(i == 0 ? -offset : offset, 0f),
+                    new Vector2(barWidth, barHeight));
+            }
+        }
+
+        private static void LayoutShopCart(RectTransform shop, float size)
+        {
+            if (shop == null)
+            {
+                return;
+            }
+
+            float bodyW = Mathf.Max(18f, size * 0.52f);
+            float bodyH = Mathf.Max(12f, size * 0.34f);
+            float wheel = Mathf.Max(7f, size * 0.16f);
+            float handleW = Mathf.Max(4f, size * 0.08f);
+            float handleH = Mathf.Max(10f, size * 0.28f);
+
+            var body = shop.Find("CartBody") as RectTransform;
+            if (body != null)
+            {
+                UIFactory.Anchor(
+                    body,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(-size * 0.04f, -size * 0.02f),
+                    new Vector2(bodyW, bodyH));
+            }
+
+            for (int i = 0; i < 2; i++)
+            {
+                var wheelRect = shop.Find($"Wheel_{i}") as RectTransform;
+                if (wheelRect == null)
+                {
+                    continue;
+                }
+
+                UIFactory.Anchor(
+                    wheelRect,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(i == 0 ? -size * 0.16f : size * 0.13f, -size * 0.28f),
+                    new Vector2(wheel, wheel));
+            }
+
+            var handle = shop.Find("CartHandle") as RectTransform;
+            if (handle != null)
+            {
+                UIFactory.Anchor(
+                    handle,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(size * 0.24f, size * 0.12f),
+                    new Vector2(handleW, handleH));
+            }
         }
 
         private static void ApplyButtonColors(Button button)
@@ -622,6 +692,54 @@ namespace BlockPuzzle.Bootstrap
             colors.fadeDuration = 0.08f;
             button.colors = colors;
             ButtonPressAnimator.Attach(button);
+        }
+
+        private static void PaintDefaultBuyButton(Button button, bool paid)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            Image background = button.targetGraphic as Image;
+            if (background == null)
+            {
+                background = button.GetComponent<Image>();
+            }
+
+            if (background != null)
+            {
+                background.color = paid ? GameTheme.ShopBuy : GameTheme.ButtonSecondary;
+            }
+
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.color = paid ? GameTheme.ShopBuyLabel : GameTheme.TextPrimary;
+            }
+        }
+
+        private static void HideLegacyPrice(RectTransform price)
+        {
+            if (price != null)
+            {
+                price.gameObject.SetActive(false);
+            }
+        }
+
+        private static void FitShopLabel(TMP_Text text, float fontSize)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.fontSize = fontSize;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = Mathf.Max(18f, fontSize * 0.72f);
+            text.fontSizeMax = fontSize;
         }
 
         private static BoosterConfirmPanel CreateBoosterConfirmPanel(RectTransform parent, GameManager gameManager)
@@ -659,7 +777,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI title = UIFactory.CreateText(
                 "Title",
                 card,
-                "Отмена хода",
+                GameLocalization.UndoTitle,
                 48f,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
@@ -674,7 +792,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI body = UIFactory.CreateText(
                 "Body",
                 card,
-                "Вернёт последнюю поставленную фигуру на панель.",
+                GameLocalization.UndoBody,
                 32f,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
@@ -690,7 +808,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI warning = UIFactory.CreateText(
                 "Warning",
                 card,
-                "Бонус за просмотр рекламы",
+                GameLocalization.AdBonusWarning,
                 28f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,
@@ -706,7 +824,7 @@ namespace BlockPuzzle.Bootstrap
             Button watch = UIFactory.CreateButton(
                 "WatchButton",
                 card,
-                "Смотреть",
+                GameLocalization.WatchAd,
                 GameTheme.Accent,
                 GameTheme.FromHex("#1a1a2e"),
                 44f);
@@ -720,7 +838,7 @@ namespace BlockPuzzle.Bootstrap
             Button cancel = UIFactory.CreateButton(
                 "CancelButton",
                 card,
-                "Отмена",
+                GameLocalization.Cancel,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
                 38f);
@@ -784,7 +902,7 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(780f, 700f));
 
             TextMeshProUGUI title = UIFactory.CreateText(
-                "Title", card, "ПАУЗА", 80f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "Title", card, GameLocalization.PauseTitle, 80f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(
                 title.rectTransform,
                 new Vector2(0.5f, 1f),
@@ -794,7 +912,7 @@ namespace BlockPuzzle.Bootstrap
             title.characterSpacing = 6f;
 
             sound = UIFactory.CreateButton(
-                "SoundButton", card, "ЗВУК: ВКЛ", GameTheme.ButtonSecondary, GameTheme.TextPrimary, 34f);
+                "SoundButton", card, GameLocalization.SoundOn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 34f);
             UIFactory.Anchor(
                 (RectTransform)sound.transform,
                 new Vector2(0.5f, 0f),
@@ -803,7 +921,7 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(620f, 100f));
 
             resume = UIFactory.CreateButton(
-                "ResumeButton", card, "ПРОДОЛЖИТЬ", GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 44f);
+                "ResumeButton", card, GameLocalization.Resume, GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 44f);
             UIFactory.Anchor(
                 (RectTransform)resume.transform,
                 new Vector2(0.5f, 0f),
@@ -812,7 +930,7 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(620f, 130f));
 
             restart = UIFactory.CreateButton(
-                "RestartButton", card, "НАЧАТЬ ЗАНОВО", GameTheme.ButtonSecondary, GameTheme.TextPrimary, 38f);
+                "RestartButton", card, GameLocalization.Restart, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 38f);
             UIFactory.Anchor(
                 (RectTransform)restart.transform,
                 new Vector2(0.5f, 0f),
@@ -847,6 +965,7 @@ namespace BlockPuzzle.Bootstrap
                 card = panel.transform.Find("Card") as RectTransform;
                 EnsureThemeProductCards(card);
                 EnsureShapesPackCard(card);
+                ApplyShopCardLayout(card);
                 price = panel.transform.Find("Card/NoAdsCard/Price")?.GetComponent<TMP_Text>();
                 buy = panel.transform.Find("Card/NoAdsCard/BuyButton")?.GetComponent<Button>();
                 back = panel.transform.Find("Card/BackButton")?.GetComponent<Button>();
@@ -875,13 +994,13 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(ShopCardWidth, ShopCardHeight));
 
             TextMeshProUGUI title = UIFactory.CreateText(
-                "Title", card, "МАГАЗИН", 72f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "Title", card, GameLocalization.ShopTitle, ShopTitleFont, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(
                 title.rectTransform,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -46f),
-                new Vector2(700f, 84f));
+                new Vector2(0f, ShopTitleY),
+                new Vector2(700f, ShopTitleHeight));
             title.characterSpacing = 6f;
 
             Image product = UIFactory.CreateImage("NoAdsCard", card, GameTheme.EmptyCell);
@@ -890,14 +1009,14 @@ namespace BlockPuzzle.Bootstrap
                 productRect,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -148f),
-                new Vector2(680f, 250f));
+                new Vector2(0f, NoAdsCardY),
+                new Vector2(ShopProductWidth, NoAdsCardHeight));
 
             TextMeshProUGUI productTitle = UIFactory.CreateText(
                 "Title",
                 productRect,
-                "Без рекламы",
-                40f,
+                GameLocalization.NoAds,
+                ProductTitleFont,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
                 FontStyles.Bold);
@@ -905,51 +1024,40 @@ namespace BlockPuzzle.Bootstrap
                 productTitle.rectTransform,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -18f),
-                new Vector2(620f, 52f));
+                new Vector2(0f, -16f),
+                new Vector2(640f, 72f));
+            FitShopLabel(productTitle, ProductTitleFont);
 
-            // Empty on purpose: only the payments catalog may fill a price in.
-            TextMeshProUGUI priceText = UIFactory.CreateText(
-                "Price",
-                productRect,
-                string.Empty,
-                30f,
-                GameTheme.TextSecondary,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal);
-            UIFactory.Anchor(
-                priceText.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -70f),
-                new Vector2(620f, 40f));
-            price = priceText;
+            price = null;
 
             buy = UIFactory.CreateButton(
                 "BuyButton",
                 productRect,
-                "Купить",
-                GameTheme.Accent,
-                GameTheme.FromHex("#1a1a2e"),
-                36f);
+                string.Empty,
+                GameTheme.ShopBuy,
+                GameTheme.ShopBuyLabel,
+                WideBuyFont);
             UIFactory.Anchor(
                 (RectTransform)buy.transform,
                 new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 0f),
-                new Vector2(0f, 20f),
-                new Vector2(560f, 90f));
+                new Vector2(0f, WideBuyBottom),
+                new Vector2(560f, WideBuyHeight));
+            FitShopLabel(buy.GetComponentInChildren<TMP_Text>(true), WideBuyFont);
 
             CreateThemeProductCards(card);
             CreateShapesPackCard(card);
 
             back = UIFactory.CreateButton(
-                "BackButton", card, "НАЗАД", GameTheme.ButtonSecondary, GameTheme.TextPrimary, 36f);
+                "BackButton", card, GameLocalization.Back, GameTheme.ButtonSecondary, GameTheme.TextPrimary, ShopBackFont);
             UIFactory.Anchor(
                 (RectTransform)back.transform,
                 new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 0f),
                 new Vector2(0f, 36f),
-                new Vector2(620f, 100f));
+                new Vector2(620f, ShopBackHeight));
+
+            ApplyShopCardLayout(card);
 
             panel = root.gameObject.AddComponent<ShopPanel>();
             panel.Bind(gameManager, hudShopButton, group, card, price, buy, back);
@@ -967,11 +1075,9 @@ namespace BlockPuzzle.Bootstrap
                 return;
             }
 
-            shopCard.sizeDelta = new Vector2(ShopCardWidth, ShopCardHeight);
-            CompactNoAdsCard(shopCard.Find("NoAdsCard") as RectTransform);
             CreateThemeProductCards(shopCard);
-            LayoutThemeProductCards(shopCard);
-            LayoutShapesPackCard(shopCard.Find("ShapesPack1Card") as RectTransform);
+            CreateShapesPackCard(shopCard);
+            ApplyShopCardLayout(shopCard);
         }
 
         /// <summary>
@@ -984,12 +1090,59 @@ namespace BlockPuzzle.Bootstrap
                 return;
             }
 
-            shopCard.sizeDelta = new Vector2(ShopCardWidth, ShopCardHeight);
             CreateShapesPackCard(shopCard);
+            ApplyShopCardLayout(shopCard);
+        }
+
+        private static void ApplyShopCardLayout(RectTransform shopCard)
+        {
+            if (shopCard == null)
+            {
+                return;
+            }
+
+            shopCard.sizeDelta = new Vector2(ShopCardWidth, ShopCardHeight);
+
+            RectTransform title = shopCard.Find("Title") as RectTransform;
+            if (title != null)
+            {
+                UIFactory.Anchor(
+                    title,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, ShopTitleY),
+                    new Vector2(700f, ShopTitleHeight));
+                FitShopLabel(title.GetComponent<TMP_Text>(), ShopTitleFont);
+            }
+
+            CompactNoAdsCard(shopCard.Find("NoAdsCard") as RectTransform);
+            LayoutThemeProductCards(shopCard);
             LayoutShapesPackCard(shopCard.Find("ShapesPack1Card") as RectTransform);
+
+            RectTransform back = shopCard.Find("BackButton") as RectTransform;
+            if (back != null)
+            {
+                UIFactory.Anchor(
+                    back,
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0f, 36f),
+                    new Vector2(620f, ShopBackHeight));
+                FitShopLabel(back.GetComponentInChildren<TMP_Text>(true), ShopBackFont);
+            }
         }
 
         private static void CompactNoAdsCard(RectTransform productRect)
+        {
+            LayoutWideProductCard(productRect, NoAdsCardY, NoAdsCardHeight, ProductTitleFont, WideBuyFont);
+        }
+
+        private static void LayoutWideProductCard(
+            RectTransform productRect,
+            float cardY,
+            float cardHeight,
+            float titleFont,
+            float buyFont)
         {
             if (productRect == null)
             {
@@ -1000,8 +1153,22 @@ namespace BlockPuzzle.Bootstrap
                 productRect,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, NoAdsCardY),
-                new Vector2(ShopProductWidth, NoAdsCardHeight));
+                new Vector2(0f, cardY),
+                new Vector2(ShopProductWidth, cardHeight));
+
+            HideLegacyPrice(productRect.Find("Price") as RectTransform);
+
+            RectTransform title = productRect.Find("Title") as RectTransform;
+            if (title != null)
+            {
+                UIFactory.Anchor(
+                    title,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -16f),
+                    new Vector2(640f, 72f));
+                FitShopLabel(title.GetComponent<TMP_Text>(), titleFont);
+            }
 
             RectTransform buy = productRect.Find("BuyButton") as RectTransform;
             if (buy != null)
@@ -1010,8 +1177,10 @@ namespace BlockPuzzle.Bootstrap
                     buy,
                     new Vector2(0.5f, 0f),
                     new Vector2(0.5f, 0f),
-                    new Vector2(0f, 20f),
-                    new Vector2(560f, 90f));
+                    new Vector2(0f, WideBuyBottom),
+                    new Vector2(560f, WideBuyHeight));
+                FitShopLabel(buy.GetComponentInChildren<TMP_Text>(true), buyFont);
+                PaintDefaultBuyButton(buy.GetComponent<Button>(), paid: true);
             }
         }
 
@@ -1097,32 +1266,12 @@ namespace BlockPuzzle.Bootstrap
                     title,
                     new Vector2(0.5f, 1f),
                     new Vector2(0.5f, 1f),
-                    new Vector2(0f, -96f),
-                    new Vector2(196f, 40f));
-                TMP_Text titleLabel = title.GetComponent<TMP_Text>();
-                if (titleLabel != null)
-                {
-                    titleLabel.fontSize = 26f;
-                    titleLabel.enableWordWrapping = false;
-                    titleLabel.overflowMode = TextOverflowModes.Ellipsis;
-                }
+                    new Vector2(0f, -104f),
+                    new Vector2(208f, 56f));
+                FitShopLabel(title.GetComponent<TMP_Text>(), ThemeTitleFont);
             }
 
-            RectTransform price = productRect.Find("Price") as RectTransform;
-            if (price != null)
-            {
-                UIFactory.Anchor(
-                    price,
-                    new Vector2(0.5f, 1f),
-                    new Vector2(0.5f, 1f),
-                    new Vector2(0f, -136f),
-                    new Vector2(196f, 28f));
-                TMP_Text priceLabel = price.GetComponent<TMP_Text>();
-                if (priceLabel != null)
-                {
-                    priceLabel.fontSize = 20f;
-                }
-            }
+            HideLegacyPrice(productRect.Find("Price") as RectTransform);
 
             RectTransform buy = productRect.Find("BuyButton") as RectTransform;
             if (buy != null)
@@ -1131,13 +1280,11 @@ namespace BlockPuzzle.Bootstrap
                     buy,
                     new Vector2(0.5f, 0f),
                     new Vector2(0.5f, 0f),
-                    new Vector2(0f, 14f),
-                    new Vector2(188f, 72f));
-                TMP_Text buyLabel = buy.GetComponentInChildren<TMP_Text>(true);
-                if (buyLabel != null)
-                {
-                    buyLabel.fontSize = 24f;
-                }
+                    new Vector2(0f, 16f),
+                    new Vector2(200f, ThemeBuyHeight));
+                FitShopLabel(buy.GetComponentInChildren<TMP_Text>(true), ThemeBuyFont);
+                bool free = productRect.name == ThemeClassicCardName || productRect.name == ThemeDefaultCardName;
+                PaintDefaultBuyButton(buy.GetComponent<Button>(), paid: !free);
             }
         }
 
@@ -1154,6 +1301,33 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(0.5f, 1f),
                 new Vector2(0f, PackCardY),
                 new Vector2(ShopProductWidth, PackCardHeight));
+
+            HideLegacyPrice(productRect.Find("Price") as RectTransform);
+
+            RectTransform title = productRect.Find("Title") as RectTransform;
+            if (title != null)
+            {
+                UIFactory.Anchor(
+                    title,
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f),
+                    new Vector2(0f, -16f),
+                    new Vector2(640f, 72f));
+                FitShopLabel(title.GetComponent<TMP_Text>(), ProductTitleFont);
+            }
+
+            RectTransform buy = productRect.Find("BuyButton") as RectTransform;
+            if (buy != null)
+            {
+                UIFactory.Anchor(
+                    buy,
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f),
+                    new Vector2(0f, WideBuyBottom),
+                    new Vector2(560f, WideBuyHeight));
+                FitShopLabel(buy.GetComponentInChildren<TMP_Text>(true), WideBuyFont);
+                PaintDefaultBuyButton(buy.GetComponent<Button>(), paid: true);
+            }
         }
 
         private static void CreateShapesPackCard(RectTransform shopCard)
@@ -1170,8 +1344,8 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI productTitle = UIFactory.CreateText(
                 "Title",
                 productRect,
-                "Набор фигурок",
-                40f,
+                GameLocalization.ShapePack,
+                ProductTitleFont,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
                 FontStyles.Bold);
@@ -1180,36 +1354,21 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
                 new Vector2(0f, -16f),
-                new Vector2(620f, 48f));
-
-            TextMeshProUGUI priceText = UIFactory.CreateText(
-                "Price",
-                productRect,
-                string.Empty,
-                28f,
-                GameTheme.TextSecondary,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal);
-            UIFactory.Anchor(
-                priceText.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -62f),
-                new Vector2(620f, 36f));
+                new Vector2(640f, 72f));
 
             Button buy = UIFactory.CreateButton(
                 "BuyButton",
                 productRect,
-                "Купить",
-                GameTheme.Accent,
-                GameTheme.FromHex("#1a1a2e"),
-                32f);
+                GameLocalization.Buy,
+                GameTheme.ShopBuy,
+                GameTheme.ShopBuyLabel,
+                WideBuyFont);
             UIFactory.Anchor(
                 (RectTransform)buy.transform,
                 new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 0f),
-                new Vector2(0f, 16f),
-                new Vector2(560f, 82f));
+                new Vector2(0f, WideBuyBottom),
+                new Vector2(560f, WideBuyHeight));
         }
 
         private static void CreateThemeProductCard(
@@ -1232,29 +1391,20 @@ namespace BlockPuzzle.Bootstrap
             UIFactory.CreateText(
                 "Title",
                 productRect,
-                theme.DisplayName,
-                26f,
+                GameLocalization.ThemeName(theme.Id),
+                ThemeTitleFont,
                 GameTheme.TextPrimary,
                 TextAlignmentOptions.Center,
                 FontStyles.Bold);
 
-            TextMeshProUGUI priceText = UIFactory.CreateText(
-                "Price",
-                productRect,
-                string.Empty,
-                20f,
-                GameTheme.TextSecondary,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal);
-            priceText.gameObject.SetActive(!free);
-
-            UIFactory.CreateButton(
+            Button action = UIFactory.CreateButton(
                 "BuyButton",
                 productRect,
-                free ? "Выбрать" : "Купить",
-                theme.Accent,
-                GameTheme.FromHex("#1a1a2e"),
-                24f);
+                free ? GameLocalization.Select : string.Empty,
+                free ? GameTheme.ButtonSecondary : GameTheme.ShopBuy,
+                free ? GameTheme.TextPrimary : GameTheme.ShopBuyLabel,
+                ThemeBuyFont);
+            PaintDefaultBuyButton(action, paid: !free);
 
             LayoutThemeProductCard(productRect, position);
         }
@@ -1262,9 +1412,6 @@ namespace BlockPuzzle.Bootstrap
         private static void CreateThemeSwatch(RectTransform parent, ThemeConfig theme)
         {
             Image icon = UIFactory.CreateImage("Icon", parent, theme.BackgroundBottom);
-            float square = 28f;
-            float gap = 4f;
-            float startX = -(square + gap) * 0.5f;
             Color[] swatches = { theme.BackgroundTop, theme.EmptyCell, theme.Accent };
             for (int i = 0; i < 2; i++)
             {
@@ -1290,10 +1437,10 @@ namespace BlockPuzzle.Bootstrap
                 icon,
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(0f, -14f),
+                new Vector2(0f, -16f),
                 new Vector2(ThemeIconSize, ThemeIconSize));
 
-            float square = 28f;
+            float square = 32f;
             float gap = 4f;
             float startX = -(square + gap) * 0.5f;
             for (int i = 0; i < 2; i++)
@@ -1443,17 +1590,17 @@ namespace BlockPuzzle.Bootstrap
                 new Vector2(840f, 780f));
 
             TextMeshProUGUI title = UIFactory.CreateText(
-                "Title", card, "ПОРАЖЕНИЕ", 84f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "Title", card, GameLocalization.GameOverTitle, 84f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(800f, 100f));
 
             TextMeshProUGUI badgeText = UIFactory.CreateText(
-                "RecordBadge", card, "НОВЫЙ РЕКОРД!", 44f, GameTheme.Accent, TextAlignmentOptions.Center, FontStyles.Bold);
+                "RecordBadge", card, GameLocalization.NewBest, 44f, GameTheme.Accent, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(badgeText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -160f), new Vector2(800f, 60f));
             badgeText.gameObject.SetActive(false);
             badge = badgeText;
 
             TextMeshProUGUI scoreCaption = UIFactory.CreateText(
-                "ScoreCaption", card, "СЧЁТ", 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "ScoreCaption", card, GameLocalization.ScoreCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(scoreCaption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -230f), new Vector2(800f, 50f));
 
             TextMeshProUGUI scoreValueText = UIFactory.CreateText(
@@ -1462,7 +1609,7 @@ namespace BlockPuzzle.Bootstrap
             scoreValue = scoreValueText;
 
             TextMeshProUGUI bestCaption = UIFactory.CreateText(
-                "BestCaption", card, "РЕКОРД", 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "BestCaption", card, GameLocalization.BestCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(bestCaption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -420f), new Vector2(800f, 50f));
 
             TextMeshProUGUI bestValueText = UIFactory.CreateText(
@@ -1473,7 +1620,7 @@ namespace BlockPuzzle.Bootstrap
             TextMeshProUGUI authHintText = UIFactory.CreateText(
                 "AuthHint",
                 card,
-                "Авторизуйтесь, чтобы сохранить результат в таблице лидеров",
+                GameLocalization.AuthHint,
                 28f,
                 GameTheme.TextSecondary,
                 TextAlignmentOptions.Center,
@@ -1491,7 +1638,7 @@ namespace BlockPuzzle.Bootstrap
             authButton = UIFactory.CreateButton(
                 "AuthButton",
                 card,
-                "АВТОРИЗОВАТЬСЯ",
+                GameLocalization.SignIn,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
                 32f);
@@ -1506,7 +1653,7 @@ namespace BlockPuzzle.Bootstrap
             continueButton = UIFactory.CreateButton(
                 "ContinueButton",
                 card,
-                "Продолжить — реклама",
+                GameLocalization.ContinueAd,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
                 32f);
@@ -1519,7 +1666,7 @@ namespace BlockPuzzle.Bootstrap
             continueButton.gameObject.SetActive(false);
 
             button = UIFactory.CreateButton(
-                "RestartButton", card, "НАЧАТЬ ЗАНОВО", GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 36f);
+                "RestartButton", card, GameLocalization.Restart, GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 36f);
             UIFactory.Anchor(
                 (RectTransform)button.transform,
                 new Vector2(0.5f, 0f),

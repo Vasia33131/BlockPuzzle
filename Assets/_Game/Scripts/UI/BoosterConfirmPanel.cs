@@ -18,15 +18,6 @@ namespace BlockPuzzle.UI
 
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
-        private const string WatchLabel = "Смотреть";
-        private const string CancelLabel = "Отмена";
-        private const string WarningText = "Бонус за просмотр рекламы";
-        private const string UndoTitle = "Отмена хода";
-        private const string UndoBody = "Вернёт последнюю поставленную фигуру на панель.";
-        private const string ExtraTitle = "Лишняя фигура";
-        private const string ExtraBody = "Добавит ещё одну фигуру на панель, если есть свободный слот.";
-        private const string ClearTitle = "Очистка линии";
-        private const string ClearBody = "Уберёт самую заполненную строку или столбец.";
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -41,6 +32,7 @@ namespace BlockPuzzle.UI
         private bool visible;
         private bool figuresBlocked;
         private Action pendingWatch;
+        private FreeBoosterType currentType;
 
         /// <summary>True while the overlay covers the board. Platform code stops GameplayAPI on it.</summary>
         public bool IsOpen => visible;
@@ -88,8 +80,9 @@ namespace BlockPuzzle.UI
 
             Listen(watchButton, HandleWatchClicked);
             Listen(cancelButton, HandleCancelClicked);
-            ApplyButtonCaption(watchButton, WatchLabel);
-            ApplyButtonCaption(cancelButton, CancelLabel);
+            GameLocalization.LanguageChanged += HandleLanguageChanged;
+            ApplyButtonCaption(watchButton, GameLocalization.WatchAd);
+            ApplyButtonCaption(cancelButton, GameLocalization.Cancel);
 
             if (gameManager != null)
             {
@@ -117,6 +110,7 @@ namespace BlockPuzzle.UI
             }
 
             ResolveRefs();
+            currentType = type;
             ApplyCopy(type);
             pendingWatch = onWatch;
             Show();
@@ -137,6 +131,7 @@ namespace BlockPuzzle.UI
 
             watchButton?.onClick.RemoveListener(HandleWatchClicked);
             cancelButton?.onClick.RemoveListener(HandleCancelClicked);
+            GameLocalization.LanguageChanged -= HandleLanguageChanged;
             pendingWatch = null;
             UnblockFigures();
             gameManager = null;
@@ -185,6 +180,16 @@ namespace BlockPuzzle.UI
 
         private void HandleCancelClicked() => Hide();
 
+        private void HandleLanguageChanged()
+        {
+            ApplyButtonCaption(watchButton, GameLocalization.WatchAd);
+            ApplyButtonCaption(cancelButton, GameLocalization.Cancel);
+            if (visible)
+            {
+                ApplyCopy(currentType);
+            }
+        }
+
         private void ApplyCopy(FreeBoosterType type)
         {
             string title;
@@ -192,16 +197,16 @@ namespace BlockPuzzle.UI
             switch (type)
             {
                 case FreeBoosterType.Extra:
-                    title = ExtraTitle;
-                    body = ExtraBody;
+                    title = GameLocalization.ExtraTitle;
+                    body = GameLocalization.ExtraBody;
                     break;
                 case FreeBoosterType.Clear:
-                    title = ClearTitle;
-                    body = ClearBody;
+                    title = GameLocalization.ClearTitle;
+                    body = GameLocalization.ClearBody;
                     break;
                 default:
-                    title = UndoTitle;
-                    body = UndoBody;
+                    title = GameLocalization.UndoTitle;
+                    body = GameLocalization.UndoBody;
                     break;
             }
 
@@ -217,7 +222,7 @@ namespace BlockPuzzle.UI
 
             if (warningLabel != null)
             {
-                warningLabel.text = WarningText;
+                warningLabel.text = GameLocalization.AdBonusWarning;
             }
 
             if (icon != null)

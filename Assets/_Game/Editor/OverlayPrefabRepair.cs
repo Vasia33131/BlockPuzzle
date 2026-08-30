@@ -10,7 +10,7 @@ namespace BlockPuzzle.EditorTools
     [InitializeOnLoad]
     public static class OverlayPrefabRepair
     {
-        private const string SessionKey = "BlockPuzzle.OverlayPrefabRepair.ClassicTheme.Ran";
+        private const string SessionKey = "BlockPuzzle.OverlayPrefabRepair.PackPreview.Ran";
 
         static OverlayPrefabRepair()
         {
@@ -36,7 +36,11 @@ namespace BlockPuzzle.EditorTools
                 ((shop.transform.Find("Card/ThemeClassicCard") == null &&
                   shop.transform.Find("Card/ThemeDefaultCard") == null) ||
                  shop.transform.Find("Card/ThemeOceanCard") == null ||
-                 shop.transform.Find("Card/ShapesPack1Card") == null);
+                 shop.transform.Find("Card/ShapesPack1Card") == null ||
+                 shop.transform.Find("PackPreview/Card/BuyButton") == null ||
+                 shop.transform.Find("Card/NoAdsCard/Price") != null ||
+                 shop.transform.Find("Card/ThemeOceanCard/Price") != null ||
+                 shop.transform.Find("Card/ShapesPack1Card/Price") != null);
             if (!missingGameOver && !missingPause && !missingShop && !staleShop)
             {
                 return;
@@ -45,7 +49,7 @@ namespace BlockPuzzle.EditorTools
             SessionState.SetBool(SessionKey, true);
             PrefabGenerator.RegenerateOverlayPanels();
             AssetDatabase.SaveAssets();
-            Debug.Log("[Block Puzzle] Restored overlay prefabs (GameOverPanel, PausePanel, ShopPanel with classic theme, paid themes and shape pack).");
+            Debug.Log("[Block Puzzle] Restored overlay prefabs (GameOverPanel, PausePanel, ShopPanel with shape-pack preview).");
         }
     }
 }

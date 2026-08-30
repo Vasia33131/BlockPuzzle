@@ -7,11 +7,11 @@
         false,
         false
     ],
-    "idSave": 1,
-    "adsRemoved": true,
-    "themeId": "theme_candy",
+    "idSave": 15,
+    "adsRemoved": false,
+    "themeId": "default",
     "ownedThemes": "theme_candy,theme_ocean",
-    "ownedPacks": "shapes_pack_1",
+    "ownedPacks": "",
     "bestScore": 22253,
     "muted": true
 }

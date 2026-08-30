@@ -20,6 +20,28 @@ namespace BlockPuzzle.Core
         public const string OwnedPacksKey = "BlockPuzzle.OwnedPacks";
         public const string ShapesPack1Id = "shapes_pack_1";
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor Play starts with no paid products so the shop can be tried as a new
+        /// player. Flip to <c>false</c> when the test is over. Live BuyPayments, consume
+        /// and grants are unchanged; only the local cache and the editor YG save are ignored.
+        /// </summary>
+        public const bool EditorForgetPurchasesOnPlay = true;
+#endif
+
+        /// <summary>True only in the Unity Editor while the test reset switch is on.</summary>
+        public static bool ForgetPurchasesOnPlay
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return EditorForgetPurchasesOnPlay;
+#else
+                return false;
+#endif
+            }
+        }
+
         private static readonly HashSet<string> ownedThemes = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> ownedPacks = new HashSet<string>(StringComparer.Ordinal);
 
@@ -48,6 +70,12 @@ namespace BlockPuzzle.Core
 
         public static void Load()
         {
+            if (ForgetPurchasesOnPlay)
+            {
+                ForgetOwnedPurchases();
+                return;
+            }
+
             AdsRemoved = PlayerPrefs.GetInt(AdsRemovedKey, 0) == 1;
             ThemeId = NormalizeThemeId(PlayerPrefs.GetString(ThemeIdKey, ThemeConfig.DefaultId));
             ownedThemes.Clear();
@@ -58,6 +86,23 @@ namespace BlockPuzzle.Core
             {
                 ThemeId = ThemeConfig.DefaultId;
             }
+        }
+
+        /// <summary>
+        /// Drops local paid grants without touching score, mute or the payments catalog.
+        /// Used by the editor test switch; production builds never call this.
+        /// </summary>
+        public static void ForgetOwnedPurchases()
+        {
+            AdsRemoved = false;
+            ThemeId = ThemeConfig.DefaultId;
+            ownedThemes.Clear();
+            ownedPacks.Clear();
+            PlayerPrefs.DeleteKey(AdsRemovedKey);
+            PlayerPrefs.DeleteKey(OwnedThemesKey);
+            PlayerPrefs.DeleteKey(OwnedPacksKey);
+            PlayerPrefs.SetString(ThemeIdKey, ThemeConfig.DefaultId);
+            PlayerPrefs.Save();
         }
 
         public static void Save()

@@ -89,8 +89,23 @@ namespace BlockPuzzle.Core
         public static readonly Color TextSecondary = FromHex("#8b8bb0");
         public static Color Accent => Active.Accent;
 
+        /// <summary>
+        /// Fill of the HUD shop and pause buttons. Follows the active theme accent:
+        /// yellow on Classic, turquoise on Ocean, pink on Candy.
+        /// </summary>
+        public static Color HudButton => Accent;
+
+        /// <summary>Dark cart / pause bars on <see cref="HudButton"/> so the glyphs stay readable.</summary>
+        public static readonly Color HudButtonIcon = FromHex("#1a1a2e");
+
         /// <summary>Muted button used where the accent would shout, such as "Restart" while paused.</summary>
         public static readonly Color ButtonSecondary = FromHex("#3a3a5f");
+
+        /// <summary>Purchase CTA on shop cards that still sell a product. Owned / select states stay muted.</summary>
+        public static readonly Color ShopBuy = FromHex("#2ECC71");
+
+        /// <summary>Dark caption on the green purchase CTA so the catalog price stays readable.</summary>
+        public static readonly Color ShopBuyLabel = FromHex("#1a1a2e");
 
         /// <summary>Drop highlight when every cell under the dragged figure is free.</summary>
         public static readonly Color HighlightValid = WithAlpha(FromHex("#00ff88"), 0.5f);

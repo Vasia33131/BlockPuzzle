@@ -16,11 +16,6 @@ namespace BlockPuzzle.UI
     public class GameOverPanel : MonoBehaviour
     {
         private const float ShowDuration = 0.3f;
-        private const string AuthHintText =
-            "Авторизуйтесь, чтобы сохранить результат в таблице лидеров";
-        private const string AuthButtonText = "АВТОРИЗОВАТЬСЯ";
-        private const string ContinueButtonText = "Продолжить — реклама";
-        private const string ContinueHintText = "Уберём 1–2 линии";
 
         private static readonly Vector2 CardSizeDefault = new Vector2(840f, 780f);
         private static readonly Vector2 CardSizeWithAuth = new Vector2(840f, 960f);
@@ -106,6 +101,8 @@ namespace BlockPuzzle.UI
             gameManager = manager;
             EnsureAuthPrompt();
             EnsureContinueButton();
+            GameLocalization.LanguageChanged += HandleLanguageChanged;
+            RefreshLocalizedTexts();
 
             if (gameManager == null)
             {
@@ -183,6 +180,35 @@ namespace BlockPuzzle.UI
             {
                 authButton.onClick.RemoveListener(HandleAuthClicked);
             }
+
+            GameLocalization.LanguageChanged -= HandleLanguageChanged;
+        }
+
+        private void HandleLanguageChanged() => RefreshLocalizedTexts();
+
+        private void RefreshLocalizedTexts()
+        {
+            ResolveCard();
+            if (card != null)
+            {
+                UIFactory.SetText(card.Find("Title")?.GetComponent<TMP_Text>(), GameLocalization.GameOverTitle);
+                UIFactory.SetText(card.Find("ScoreCaption")?.GetComponent<TMP_Text>(), GameLocalization.ScoreCaption);
+                UIFactory.SetText(card.Find("BestCaption")?.GetComponent<TMP_Text>(), GameLocalization.BestCaption);
+            }
+
+            if (recordBadge != null)
+            {
+                recordBadge.text = GameLocalization.NewBest;
+            }
+
+            UIFactory.SetButtonText(restartButton, GameLocalization.Restart);
+            if (authHint != null)
+            {
+                authHint.text = GameLocalization.AuthHint;
+            }
+
+            UIFactory.SetButtonText(authButton, GameLocalization.SignIn);
+            StyleContinueButton();
         }
 
         private void HandleStateChanged(GameState state)
@@ -203,6 +229,7 @@ namespace BlockPuzzle.UI
 
         private void Show()
         {
+            RefreshLocalizedTexts();
             ScoreManager score = gameManager != null ? gameManager.Score : null;
             int finalScore = score != null ? score.Score : 0;
             int best = score != null ? score.BestScore : 0;
@@ -352,7 +379,7 @@ namespace BlockPuzzle.UI
                 TextMeshProUGUI hint = UIFactory.CreateText(
                     "AuthHint",
                     card,
-                    AuthHintText,
+                    GameLocalization.AuthHint,
                     28f,
                     GameTheme.TextSecondary,
                     TextAlignmentOptions.Center,
@@ -362,7 +389,7 @@ namespace BlockPuzzle.UI
             }
             else
             {
-                authHint.text = AuthHintText;
+                authHint.text = GameLocalization.AuthHint;
             }
 
             if (authButton == null)
@@ -370,7 +397,7 @@ namespace BlockPuzzle.UI
                 authButton = UIFactory.CreateButton(
                     "AuthButton",
                     card,
-                    AuthButtonText,
+                    GameLocalization.SignIn,
                     GameTheme.ButtonSecondary,
                     GameTheme.TextPrimary,
                     32f);
@@ -380,7 +407,7 @@ namespace BlockPuzzle.UI
                 TMP_Text label = authButton.GetComponentInChildren<TMP_Text>(true);
                 if (label != null)
                 {
-                    label.text = AuthButtonText;
+                    label.text = GameLocalization.SignIn;
                 }
             }
 
@@ -420,7 +447,7 @@ namespace BlockPuzzle.UI
                 continueButton = UIFactory.CreateButton(
                     "ContinueButton",
                     card,
-                    ContinueButtonText,
+                    GameLocalization.ContinueAd,
                     GameTheme.ButtonSecondary,
                     GameTheme.TextPrimary,
                     32f);
@@ -451,7 +478,7 @@ namespace BlockPuzzle.UI
 
             if (label != null)
             {
-                label.text = ContinueButtonText;
+                label.text = GameLocalization.ContinueAd;
                 label.fontSize = 32f;
                 label.fontStyle = FontStyles.Bold;
                 UIFactory.Anchor(
@@ -469,7 +496,7 @@ namespace BlockPuzzle.UI
                 TextMeshProUGUI created = UIFactory.CreateText(
                     "Hint",
                     continueButton.transform,
-                    ContinueHintText,
+                    GameLocalization.ContinueHint,
                     22f,
                     GameTheme.TextSecondary,
                     TextAlignmentOptions.Center,
@@ -478,7 +505,7 @@ namespace BlockPuzzle.UI
             }
             else
             {
-                hint.text = ContinueHintText;
+                hint.text = GameLocalization.ContinueHint;
                 hint.fontSize = 22f;
                 hint.color = GameTheme.TextSecondary;
             }

@@ -223,7 +223,10 @@ namespace BlockPuzzle.Platform
         {
             YG2.ConsumePurchases();
             PushCatalogOffers();
-            TryGrantFromCatalog();
+            if (!PlayerProgress.ForgetPurchasesOnPlay)
+            {
+                TryGrantFromCatalog();
+            }
         }
 
         private void RestorePurchases()
@@ -236,7 +239,10 @@ namespace BlockPuzzle.Platform
 
             restoreRequested = true;
             YG2.ConsumePurchases();
-            TryGrantFromCatalog();
+            if (!PlayerProgress.ForgetPurchasesOnPlay)
+            {
+                TryGrantFromCatalog();
+            }
         }
 
         /// <summary>
@@ -329,9 +335,9 @@ namespace BlockPuzzle.Platform
         }
 
         /// <summary>
-        /// Loads <c>purchase.currencyImageURL</c> into the slot next to the price, the
-        /// same way <see cref="PurchaseYG"/> does for its own cards. A mocked currency
-        /// on the debug panel therefore changes both the amount and the icon.
+        /// Loads <c>purchase.currencyImageURL</c> into the slot next to the price on
+        /// the Buy button, the same way <see cref="PurchaseYG"/> does for its own cards.
+        /// A mocked currency on the debug panel therefore changes both the amount and the icon.
         /// </summary>
         private void LoadCurrencyIcon(string productId, Purchase purchase)
         {

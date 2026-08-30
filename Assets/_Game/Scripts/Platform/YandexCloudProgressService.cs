@@ -97,6 +97,14 @@ namespace BlockPuzzle.Platform
             hasCloudData = true;
             cloudBestScore = saves.bestScore;
 
+            if (PlayerProgress.ForgetPurchasesOnPlay)
+            {
+                saves.adsRemoved = false;
+                saves.ownedThemes = string.Empty;
+                saves.ownedPacks = string.Empty;
+                saves.themeId = ThemeConfig.DefaultId;
+            }
+
             PlayerProgress.Restore(saves.adsRemoved, saves.ownedThemes, saves.ownedPacks, saves.themeId);
             ApplyCloudBestScore();
 

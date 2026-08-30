@@ -227,7 +227,11 @@ namespace BlockPuzzle.EditorTools
                  existing.transform.Find("Card/ThemeDefaultCard/BuyButton") != null) &&
                 existing.transform.Find("Card/ThemeOceanCard/BuyButton") != null &&
                 existing.transform.Find("Card/ThemeCandyCard/BuyButton") != null &&
-                existing.transform.Find("Card/ShapesPack1Card/BuyButton") != null)
+                existing.transform.Find("Card/ShapesPack1Card/BuyButton") != null &&
+                existing.transform.Find("PackPreview/Card/BuyButton") != null &&
+                existing.transform.Find("Card/NoAdsCard/Price") == null &&
+                existing.transform.Find("Card/ThemeOceanCard/Price") == null &&
+                existing.transform.Find("Card/ShapesPack1Card/Price") == null)
             {
                 return existing.GetComponent<ShopPanel>();
             }

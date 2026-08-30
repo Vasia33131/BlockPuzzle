@@ -21,20 +21,20 @@ namespace BlockPuzzle.UI
         private const float LayoutSettleDelay = 0.1f;
 
         private const float PortraitTopMargin = 12f;
-        private const float PortraitTopHeight = 112f;
+        private const float PortraitTopHeight = 164f;
         private const float PortraitSideMargin = 16f;
-        private const float PortraitPauseSize = 92f;
+        private const float PortraitPauseSize = 148f;
 
         private const float LandscapeTopMargin = 8f;
-        private const float LandscapeTopHeight = 96f;
+        private const float LandscapeTopHeight = 132f;
         private const float LandscapeSideMargin = 12f;
-        private const float LandscapePauseSize = 78f;
+        private const float LandscapePauseSize = 124f;
 
         private const float ScoreSectionWidth = 320f;
         private const float BestSectionWidth = 280f;
         private const float SectionSidePadding = 20f;
         private const float PauseRightPadding = 15f;
-        private const float HudButtonGap = 10f;
+        private const float HudButtonGap = 12f;
 
         [Header("UI Панели")]
         [SerializeField] private RectTransform safeArea;
@@ -456,9 +456,9 @@ namespace BlockPuzzle.UI
 
         private static void ScalePauseBars(RectTransform pause, float size)
         {
-            float barWidth = Mathf.Max(5f, size * 0.125f);
-            float barHeight = Mathf.Max(16f, size * 0.43f);
-            float offset = Mathf.Max(5f, size * 0.125f);
+            float barWidth = Mathf.Max(8f, size * 0.14f);
+            float barHeight = Mathf.Max(22f, size * 0.50f);
+            float offset = Mathf.Max(8f, size * 0.15f);
 
             for (int i = 0; i < 2; i++)
             {
@@ -479,11 +479,11 @@ namespace BlockPuzzle.UI
 
         private static void ScaleShopCart(RectTransform shop, float size)
         {
-            float bodyW = Mathf.Max(14f, size * 0.46f);
-            float bodyH = Mathf.Max(10f, size * 0.29f);
-            float wheel = Mathf.Max(5f, size * 0.14f);
-            float handleW = Mathf.Max(3f, size * 0.07f);
-            float handleH = Mathf.Max(8f, size * 0.25f);
+            float bodyW = Mathf.Max(18f, size * 0.52f);
+            float bodyH = Mathf.Max(12f, size * 0.34f);
+            float wheel = Mathf.Max(7f, size * 0.16f);
+            float handleW = Mathf.Max(4f, size * 0.08f);
+            float handleH = Mathf.Max(10f, size * 0.28f);
 
             var body = shop.Find("CartBody") as RectTransform;
             if (body != null)
@@ -508,7 +508,7 @@ namespace BlockPuzzle.UI
                     wheelRect,
                     new Vector2(0.5f, 0.5f),
                     new Vector2(0.5f, 0.5f),
-                    new Vector2(i == 0 ? -size * 0.14f : size * 0.11f, -size * 0.25f),
+                    new Vector2(i == 0 ? -size * 0.16f : size * 0.13f, -size * 0.28f),
                     new Vector2(wheel, wheel));
             }
 
@@ -519,7 +519,7 @@ namespace BlockPuzzle.UI
                     handle,
                     new Vector2(0.5f, 0.5f),
                     new Vector2(0.5f, 0.5f),
-                    new Vector2(size * 0.21f, size * 0.11f),
+                    new Vector2(size * 0.24f, size * 0.12f),
                     new Vector2(handleW, handleH));
             }
         }

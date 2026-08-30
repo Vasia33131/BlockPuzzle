@@ -117,6 +117,24 @@ namespace BlockPuzzle.Core
             return button;
         }
 
+        public static void SetText(TMP_Text label, string content)
+        {
+            if (label != null)
+            {
+                label.text = content ?? string.Empty;
+            }
+        }
+
+        public static void SetButtonText(Button button, string content)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            SetText(button.GetComponentInChildren<TMP_Text>(true), content);
+        }
+
         /// <summary>Makes the rect fill its parent, optionally inset by <paramref name="padding"/>.</summary>
         public static RectTransform Stretch(RectTransform rect, float padding = 0f)
         {
