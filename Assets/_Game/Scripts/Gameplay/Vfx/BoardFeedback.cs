@@ -23,7 +23,6 @@ namespace BlockPuzzle.Vfx
         private static readonly Color GreatColor = GameTheme.FromHex("#7CF29C");
         private static readonly Color SuperColor = GameTheme.FromHex("#FFD54A");
         private static readonly Color IncredibleColor = GameTheme.FromHex("#FF7AB6");
-        private static readonly Color OutlineColor = new Color(0.08f, 0.06f, 0.18f, 0.9f);
 
         [Header("Line flash")]
         [SerializeField, Range(0f, 1f)] private float flashAlpha = 0.85f;
@@ -523,12 +522,7 @@ namespace BlockPuzzle.Vfx
             label.extraPadding = true;
 
             // A dark rim keeps the text readable over any block colour.
-            label.outlineWidth = 0.22f;
-            label.outlineColor = OutlineColor;
-            if (label.fontMaterial != null)
-            {
-                label.fontMaterial.EnableKeyword("OUTLINE_ON");
-            }
+            GameFonts.Apply(label, FontRole.Heading, FontPreset.Outline);
 
             label.gameObject.SetActive(false);
             return label;

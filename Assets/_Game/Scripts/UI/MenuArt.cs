@@ -87,11 +87,9 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            Material instance = text.fontMaterial;
-            instance.EnableKeyword("OUTLINE_ON");
-            instance.EnableKeyword("UNDERLAY_ON");
-            ConfigureTextMaterial(instance);
-            text.UpdateMeshPadding();
+            // No baked menu material for this font: use its baked outline preset, not a material instance.
+            FontRole role = text.font == GameFonts.Get(FontRole.Body) ? FontRole.Body : FontRole.Heading;
+            GameFonts.Apply(text, role, FontPreset.Outline);
         }
 
         /// <summary>Outline and underlay values shared by the baked asset and the run-time fallback.</summary>

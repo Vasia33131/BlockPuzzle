@@ -319,7 +319,6 @@ namespace BlockPuzzle.UI
             if (badge.color != color)
             {
                 badge.color = color;
-                badge.outlineColor = color;
             }
         }
 
@@ -502,20 +501,13 @@ namespace BlockPuzzle.UI
 
             badge.text = "+1";
             badge.fontSize = BadgeFontSize;
-            GameFonts.Apply(badge, FontRole.Heading);
+            GameFonts.Apply(badge, FontRole.Heading, FontPreset.Outline);
             badge.alignment = TextAlignmentOptions.Center;
             badge.color = BadgeRed;
             badge.raycastTarget = false;
             badge.enableWordWrapping = false;
             badge.overflowMode = TextOverflowModes.Overflow;
             badge.extraPadding = true;
-            badge.outlineWidth = 0.22f;
-            badge.outlineColor = BadgeRed;
-            if (badge.fontMaterial != null)
-            {
-                badge.fontMaterial.EnableKeyword("OUTLINE_ON");
-            }
-
             UIFactory.Anchor(
                 badge.rectTransform,
                 new Vector2(0f, 1f),

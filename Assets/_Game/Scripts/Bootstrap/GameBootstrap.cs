@@ -21,54 +21,78 @@ namespace BlockPuzzle.Bootstrap
 
         private void Awake()
         {
-            
-            ApplyMobileSettings();
-            GameTween.Initialize();
+            // Core first: the board, pieces and GameManager must come up even when a UI widget below throws.
+            Step("ApplyMobileSettings", () => ApplyMobileSettings());
+            Step("GameTween.Initialize", () => GameTween.Initialize());
 
-            if (buildSceneIfMissing && FindObjectOfType<GameManager>() == null)
+            Step("GameSceneFactory.Build", () =>
             {
-                GameSceneFactory.Build(shapeLibrary);
-            }
+                if (buildSceneIfMissing && FindObjectOfType<GameManager>() == null)
+                {
+                    GameSceneFactory.Build(shapeLibrary);
+                }
+            });
 
             // Baked scenes may predate UIManager / OrientationHandler / BoosterBar / ShopPanel /
             // BoosterConfirmPanel.
-            UIManager.Ensure();
-            OrientationHandler.Ensure();
+            Step("UIManager.Ensure", () => UIManager.Ensure());
+            Step("OrientationHandler.Ensure", () => OrientationHandler.Ensure());
 
-            RectTransform safeArea = GameObject.Find("SafeArea")?.GetComponent<RectTransform>();
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            GameSceneFactory.EnsureBoosterBar(safeArea, gameManager);
-            TutorialController.Ensure(gameManager);
+            RectTransform safeArea = null;
+            GameManager gameManager = null;
+            RectTransform canvasRect = null;
+            RectTransform topPanel = null;
+            Button hudShop = null;
+            Step("FindSceneRoots", () =>
+            {
+                safeArea = GameObject.Find("SafeArea")?.GetComponent<RectTransform>();
+                gameManager = FindObjectOfType<GameManager>();
+                canvasRect = FindObjectOfType<Canvas>()?.GetComponent<RectTransform>();
+                topPanel = GameObject.Find("TopPanel")?.GetComponent<RectTransform>();
+            });
 
-            RectTransform canvasRect = FindObjectOfType<Canvas>()?.GetComponent<RectTransform>();
-            RectTransform topPanel = GameObject.Find("TopPanel")?.GetComponent<RectTransform>();
-            Button hudShop = GameSceneFactory.EnsureHudShopButton(topPanel);
-            GameSceneFactory.EnsureShopPanel(canvasRect, hudShop);
-            GameSceneFactory.EnsureBoosterConfirmPanel(canvasRect, gameManager);
+            Step("EnsureBoosterBar", () => GameSceneFactory.EnsureBoosterBar(safeArea, gameManager));
+            Step("TutorialController.Ensure", () => TutorialController.Ensure(gameManager));
+
+            Step("EnsureHudShopButton", () => hudShop = GameSceneFactory.EnsureHudShopButton(topPanel));
+            Step("EnsureShopPanel", () => GameSceneFactory.EnsureShopPanel(canvasRect, hudShop));
+            Step("EnsureBoosterConfirmPanel", () => GameSceneFactory.EnsureBoosterConfirmPanel(canvasRect, gameManager));
 
             // Levels: the HUD replaces the endless score while a level is on, the overlays sit above the
             // pause screen and below the menu. All of them are built in code.
-            LevelHudView.Ensure(topPanel, gameManager);
-            LevelIntroPanel.Ensure(canvasRect, gameManager);
-            LevelWinPanel.Ensure(canvasRect, gameManager);
-            LevelFailPanel.Ensure(canvasRect, gameManager);
-            LevelExitConfirmPanel.Ensure(canvasRect, gameManager);
+            Step("LevelHudView.Ensure", () => LevelHudView.Ensure(topPanel, gameManager));
+            Step("LevelIntroPanel.Ensure", () => LevelIntroPanel.Ensure(canvasRect, gameManager));
+            Step("LevelWinPanel.Ensure", () => LevelWinPanel.Ensure(canvasRect, gameManager));
+            Step("LevelFailPanel.Ensure", () => LevelFailPanel.Ensure(canvasRect, gameManager));
+            Step("LevelExitConfirmPanel.Ensure", () => LevelExitConfirmPanel.Ensure(canvasRect, gameManager));
 
             // Meta layer overlays are always built in code. The menu goes first: the daily
             // reward pops up over it and lifts itself to the top.
-            GameSceneFactory.EnsureMainMenuPanel(canvasRect, gameManager);
-            LevelMapPanel.Ensure(canvasRect, gameManager);
-            DailyRewardPanel.Ensure(canvasRect, gameManager);
-            SettingsPanel.Ensure(canvasRect, gameManager);
-            MetaToast.Ensure(canvasRect);
-            LevelUpPopup.Ensure(canvasRect, gameManager);
-            ThemeBinder.Ensure();
-            GameTheme.ApplyFromProgress();
-            FindObjectOfType<OrientationHandler>()?.RefreshNow();
+            Step("EnsureMainMenuPanel", () => GameSceneFactory.EnsureMainMenuPanel(canvasRect, gameManager));
+            Step("LevelMapPanel.Ensure", () => LevelMapPanel.Ensure(canvasRect, gameManager));
+            Step("DailyRewardPanel.Ensure", () => DailyRewardPanel.Ensure(canvasRect, gameManager));
+            Step("SettingsPanel.Ensure", () => SettingsPanel.Ensure(canvasRect, gameManager));
+            Step("MetaToast.Ensure", () => MetaToast.Ensure(canvasRect));
+            Step("LevelUpPopup.Ensure", () => LevelUpPopup.Ensure(canvasRect, gameManager));
+            Step("ThemeBinder.Ensure", () => ThemeBinder.Ensure());
+            Step("GameTheme.ApplyFromProgress", () => GameTheme.ApplyFromProgress());
+            Step("OrientationHandler.RefreshNow", () => FindObjectOfType<OrientationHandler>()?.RefreshNow());
+            Step("UIManager.FixLayoutForPC", () => FindObjectOfType<UIManager>()?.FixLayoutForPC());
+            Step("ButtonPressAnimator.AttachAll", () => ButtonPressAnimator.AttachAll(FindObjectOfType<Canvas>()?.transform));
+        }
 
-            UIManager existingUi = FindObjectOfType<UIManager>();
-            existingUi?.FixLayoutForPC();
-            ButtonPressAnimator.AttachAll(FindObjectOfType<Canvas>()?.transform);
+        /// <summary>Runs one start-up step; a failure is logged with the step name and does not stop the next steps.</summary>
+        private static void Step(string name, System.Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError("[GameBootstrap] Step failed: " + name);
+                Debug.LogException(exception);
+            }
         }
 
         private void ApplyMobileSettings()
