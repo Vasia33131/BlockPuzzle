@@ -14,11 +14,17 @@ namespace BlockPuzzle.Grid
         private readonly bool[,] occupied;
         private readonly Color[,] colors;
 
+        // Level tags on occupied cells; always false in the endless mode.
+        private readonly bool[,] crystal;
+        private readonly bool[,] marked;
+
         public GridModel(int size = GameTheme.GridSize)
         {
             Size = Mathf.Max(1, size);
             occupied = new bool[Size, Size];
             colors = new Color[Size, Size];
+            crystal = new bool[Size, Size];
+            marked = new bool[Size, Size];
         }
 
         public int Size { get; }
@@ -53,6 +59,24 @@ namespace BlockPuzzle.Grid
 
         public Color GetColor(int row, int col) => colors[row, col];
 
+        /// <summary>True when the cell is a block that hides a crystal.</summary>
+        public bool IsCrystal(int row, int col) => IsOccupied(row, col) && crystal[row, col];
+
+        /// <summary>True when the cell is a block flagged as a goal cell.</summary>
+        public bool IsMarked(int row, int col) => IsOccupied(row, col) && marked[row, col];
+
+        /// <summary>Flags an occupied cell as a crystal and/or a goal cell. The flags go away with the block.</summary>
+        public void SetTags(int row, int col, bool isCrystal, bool isMarked)
+        {
+            if (!IsOccupied(row, col))
+            {
+                return;
+            }
+
+            crystal[row, col] = isCrystal;
+            marked[row, col] = isMarked;
+        }
+
         /// <summary>Repaints an occupied cell without changing occupancy. Used when the theme swaps palettes.</summary>
         public void SetColor(int row, int col, Color color)
         {
@@ -63,7 +87,7 @@ namespace BlockPuzzle.Grid
         }
 
         /// <summary>Independent copy of occupancy and colours, safe to restore later.</summary>
-        public BoardSnapshot Capture() => new BoardSnapshot(Size, occupied, colors);
+        public BoardSnapshot Capture() => new BoardSnapshot(Size, occupied, colors, crystal, marked);
 
         /// <summary>Replaces the live board with <paramref name="snapshot"/>. Size must match.</summary>
         public void Restore(BoardSnapshot snapshot)
@@ -73,7 +97,7 @@ namespace BlockPuzzle.Grid
                 return;
             }
 
-            snapshot.CopyTo(occupied, colors);
+            snapshot.CopyTo(occupied, colors, crystal, marked);
         }
 
         /// <summary>
@@ -93,6 +117,8 @@ namespace BlockPuzzle.Grid
                 {
                     occupied[index, col] = false;
                     colors[index, col] = default;
+                    crystal[index, col] = false;
+                    marked[index, col] = false;
                 }
             }
             else
@@ -101,6 +127,8 @@ namespace BlockPuzzle.Grid
                 {
                     occupied[row, index] = false;
                     colors[row, index] = default;
+                    crystal[row, index] = false;
+                    marked[row, index] = false;
                 }
             }
         }
@@ -274,6 +302,8 @@ namespace BlockPuzzle.Grid
             {
                 occupied[cell.y, cell.x] = false;
                 colors[cell.y, cell.x] = default;
+                crystal[cell.y, cell.x] = false;
+                marked[cell.y, cell.x] = false;
             }
         }
 
@@ -285,6 +315,8 @@ namespace BlockPuzzle.Grid
                 {
                     occupied[row, col] = false;
                     colors[row, col] = default;
+                    crystal[row, col] = false;
+                    marked[row, col] = false;
                 }
             }
         }

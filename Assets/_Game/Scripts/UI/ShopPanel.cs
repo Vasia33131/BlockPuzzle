@@ -29,6 +29,9 @@ namespace BlockPuzzle.UI
         private const string PackPreviewName = "PackPreview";
         private const float CurrencyIconGap = 8f;
         private const string NoAdsProductId = "no_ads";
+        private const string CoinBalanceName = "CoinBalance";
+        private const string CoinBuyButtonName = "CoinBuyButton";
+        private const float CoinConfirmSeconds = 3f;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private Button hudShopButton;
@@ -39,6 +42,7 @@ namespace BlockPuzzle.UI
         [SerializeField] private Button backButton;
 
         private TMP_Text buyLabel;
+        private TMP_Text coinBalance;
         private readonly Dictionary<string, string> catalogPrices = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly List<ThemeCard> themeCards = new List<ThemeCard>(3);
         private ThemeCard packCard;
@@ -50,6 +54,7 @@ namespace BlockPuzzle.UI
         private Button packPreviewCancel;
         private bool visible;
         private bool packPreviewVisible;
+        private int restoreSiblingIndex = -1;
 
         /// <summary>True while the shop covers the board. Platform code stops GameplayAPI on it.</summary>
         public bool IsOpen => visible;
@@ -115,6 +120,7 @@ namespace BlockPuzzle.UI
             BindThemeCards();
             BindPackCard();
             GameLocalization.LanguageChanged += HandleLanguageChanged;
+            MetaProgress.Changed += HandleMetaChanged;
 
             RefreshLocalizedTexts();
             SetVisible(false);
@@ -173,9 +179,137 @@ namespace BlockPuzzle.UI
 
             RefreshPackCard();
             RefreshPackPreview();
+            RefreshCoinBalance();
         }
 
         private void OnDestroy() => Unbind();
+
+        /// <summary>Drops a pending "Buy?" confirmation once it timed out.</summary>
+        private void Update()
+        {
+            for (int i = 0; i < themeCards.Count; i++)
+            {
+                ThemeCard themeCard = themeCards[i];
+                if (themeCard.CoinConfirmUntil > 0f && Time.unscaledTime > themeCard.CoinConfirmUntil)
+                {
+                    themeCard.CoinConfirmUntil = 0f;
+                    RefreshThemeCard(themeCard);
+                }
+            }
+        }
+
+        private void HandleMetaChanged()
+        {
+            if (visible)
+            {
+                RefreshPurchaseState();
+            }
+            else
+            {
+                RefreshCoinBalance();
+            }
+        }
+
+        private void RefreshCoinBalance()
+        {
+            EnsureCoinBalance();
+            if (coinBalance != null)
+            {
+                coinBalance.text = MetaProgress.Coins.ToString();
+            }
+        }
+
+        /// <summary>Coins in the top-right corner of the shop card, built on first use.</summary>
+        private void EnsureCoinBalance()
+        {
+            if (coinBalance != null || card == null)
+            {
+                return;
+            }
+
+            coinBalance = card.Find(CoinBalanceName + "/Amount")?.GetComponent<TMP_Text>();
+            if (coinBalance != null)
+            {
+                return;
+            }
+
+            // Corner of the card, clear of the centred title.
+            coinBalance = MetaUi.CreateCoinAmount(CoinBalanceName, card, 36f, MetaUi.CoinGold);
+            UIFactory.Anchor(
+                (RectTransform)coinBalance.transform.parent,
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(-18f, -18f),
+                new Vector2(170f, 50f));
+        }
+
+        /// <summary>
+        /// Gold "[coin] 1500" button above the real-money Buy of a paid palette. Built in
+        /// code so shop prefabs baked before the coins still get it.
+        /// </summary>
+        private static Button EnsureCoinButton(RectTransform themeRoot, out TMP_Text priceLabel)
+        {
+            priceLabel = null;
+            if (themeRoot == null)
+            {
+                return null;
+            }
+
+            Transform existing = themeRoot.Find(CoinBuyButtonName);
+            Button button = existing != null ? existing.GetComponent<Button>() : null;
+            if (button == null)
+            {
+                button = UIFactory.CreateButton(
+                    CoinBuyButtonName, themeRoot, string.Empty, MetaUi.CoinGold, MetaUi.DarkLabel, 30f);
+                UIFactory.SetButtonText(button, string.Empty);
+                TMP_Text amount = MetaUi.CreateCoinAmount("Price", button.transform, 32f, MetaUi.DarkLabel);
+                UIFactory.Stretch((RectTransform)amount.transform.parent);
+            }
+
+            UIFactory.Anchor(
+                (RectTransform)button.transform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, 114f),
+                new Vector2(200f, 76f));
+
+            Transform label = button.transform.Find("Price/Amount");
+            priceLabel = label != null ? label.GetComponent<TMP_Text>() : null;
+            return button;
+        }
+
+        private void HandleThemeCoinClicked(ThemeCard themeCard)
+        {
+            if (themeCard == null || PlayerProgress.OwnsTheme(themeCard.Id))
+            {
+                return;
+            }
+
+            int price = GameTheme.Get(themeCard.Id).CoinPrice;
+            if (price <= 0 || MetaProgress.Coins < price)
+            {
+                return;
+            }
+
+            // First tap arms, the second one within a few seconds spends the coins.
+            if (themeCard.CoinConfirmUntil <= 0f || Time.unscaledTime > themeCard.CoinConfirmUntil)
+            {
+                themeCard.CoinConfirmUntil = Time.unscaledTime + CoinConfirmSeconds;
+                RefreshThemeCard(themeCard);
+                return;
+            }
+
+            themeCard.CoinConfirmUntil = 0f;
+            if (!MetaProgress.TrySpendCoins(price))
+            {
+                RefreshPurchaseState();
+                return;
+            }
+
+            PlayerProgress.GrantTheme(themeCard.Id);
+            GameTheme.ApplyFromProgress();
+            RefreshPurchaseState();
+        }
 
         private void Unbind()
         {
@@ -187,6 +321,7 @@ namespace BlockPuzzle.UI
 
             GameTheme.Changed -= HandleThemeChanged;
             GameLocalization.LanguageChanged -= HandleLanguageChanged;
+            MetaProgress.Changed -= HandleMetaChanged;
 
             hudShopButton?.onClick.RemoveListener(HandleHudShopClicked);
             buyButton?.onClick.RemoveListener(HandleBuyClicked);
@@ -213,6 +348,26 @@ namespace BlockPuzzle.UI
             if (gameManager != null && gameManager.State != GameState.Playing)
             {
                 return;
+            }
+
+            Show();
+        }
+
+        /// <summary>
+        /// Opens the shop from outside the HUD (the coin counter's "+"), in any state. The panel
+        /// rises above every other overlay, such as the main menu, and drops back on close.
+        /// </summary>
+        public void Open()
+        {
+            if (visible)
+            {
+                return;
+            }
+
+            if (transform.parent != null)
+            {
+                restoreSiblingIndex = transform.GetSiblingIndex();
+                transform.SetAsLastSibling();
             }
 
             Show();
@@ -373,6 +528,12 @@ namespace BlockPuzzle.UI
 
         private void Hide()
         {
+            if (restoreSiblingIndex >= 0)
+            {
+                transform.SetSiblingIndex(restoreSiblingIndex);
+                restoreSiblingIndex = -1;
+            }
+
             ResolveRefs();
             HidePackPreview(instant: true);
             if (!visible && (canvasGroup == null || canvasGroup.alpha <= 0f))
@@ -476,6 +637,7 @@ namespace BlockPuzzle.UI
             }
 
             EnsurePackPreview();
+            EnsureCoinBalance();
             HideLegacyPrice(priceLabel);
         }
 
@@ -507,13 +669,21 @@ namespace BlockPuzzle.UI
             Button action = root.Find("BuyButton")?.GetComponent<Button>();
             TMP_Text leftoverPrice = root.Find("Price")?.GetComponent<TMP_Text>();
             HideLegacyPrice(leftoverPrice);
+
+            TMP_Text coinLabel = null;
+            Button coinButton = GameTheme.Get(themeId).CoinPrice > 0
+                ? EnsureCoinButton(root as RectTransform, out coinLabel)
+                : null;
+
             themeCards.Add(new ThemeCard
             {
                 Id = themeId,
                 Root = root as RectTransform,
                 Title = root.Find("Title")?.GetComponent<TMP_Text>(),
                 ActionButton = action,
-                ActionLabel = action != null ? action.GetComponentInChildren<TMP_Text>(true) : null
+                ActionLabel = action != null ? action.GetComponentInChildren<TMP_Text>(true) : null,
+                CoinButton = coinButton,
+                CoinLabel = coinLabel
             });
             return true;
         }
@@ -525,6 +695,12 @@ namespace BlockPuzzle.UI
             for (int i = 0; i < themeCards.Count; i++)
             {
                 ThemeCard themeCard = themeCards[i];
+                if (themeCard.CoinButton != null)
+                {
+                    themeCard.CoinClickHandler = () => HandleThemeCoinClicked(themeCard);
+                    themeCard.CoinButton.onClick.AddListener(themeCard.CoinClickHandler);
+                }
+
                 if (themeCard.ActionButton == null)
                 {
                     continue;
@@ -544,6 +720,11 @@ namespace BlockPuzzle.UI
                 if (themeCard.ActionButton != null && themeCard.ClickHandler != null)
                 {
                     themeCard.ActionButton.onClick.RemoveListener(themeCard.ClickHandler);
+                }
+
+                if (themeCard.CoinButton != null && themeCard.CoinClickHandler != null)
+                {
+                    themeCard.CoinButton.onClick.RemoveListener(themeCard.CoinClickHandler);
                 }
             }
 
@@ -578,6 +759,51 @@ namespace BlockPuzzle.UI
                 owned ? !selected : sellable,
                 caption,
                 showCurrencyIcon: sellable);
+
+            RefreshCoinButton(themeCard, owned);
+        }
+
+        /// <summary>Coin offer next to the paid one: hidden once owned, dimmed while the player is short.</summary>
+        private static void RefreshCoinButton(ThemeCard themeCard, bool owned)
+        {
+            if (themeCard.CoinButton == null)
+            {
+                return;
+            }
+
+            int price = GameTheme.Get(themeCard.Id).CoinPrice;
+            bool offered = !owned && price > 0;
+            themeCard.CoinButton.gameObject.SetActive(offered);
+            if (!offered)
+            {
+                themeCard.CoinConfirmUntil = 0f;
+                return;
+            }
+
+            bool affordable = MetaProgress.Coins >= price;
+            bool confirming = affordable && themeCard.CoinConfirmUntil > 0f;
+            themeCard.CoinButton.interactable = affordable;
+
+            ColorBlock colors = themeCard.CoinButton.colors;
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
+            themeCard.CoinButton.colors = colors;
+
+            if (themeCard.CoinLabel != null)
+            {
+                themeCard.CoinLabel.text = confirming ? GameLocalization.BuyForCoinsConfirm : price.ToString();
+            }
+
+            Transform coin = themeCard.CoinLabel != null ? themeCard.CoinLabel.transform.parent.Find("Coin") : null;
+            if (coin != null)
+            {
+                coin.gameObject.SetActive(!confirming);
+            }
+
+            Image background = themeCard.CoinButton.targetGraphic as Image;
+            if (background != null)
+            {
+                background.color = confirming ? GameTheme.ShopBuy : MetaUi.CoinGold;
+            }
         }
 
         private void CollectPackCard()
@@ -1159,6 +1385,10 @@ namespace BlockPuzzle.UI
             public Button ActionButton;
             public TMP_Text ActionLabel;
             public UnityEngine.Events.UnityAction ClickHandler;
+            public Button CoinButton;
+            public TMP_Text CoinLabel;
+            public UnityEngine.Events.UnityAction CoinClickHandler;
+            public float CoinConfirmUntil;
         }
     }
 }

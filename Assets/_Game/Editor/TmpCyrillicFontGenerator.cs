@@ -142,7 +142,8 @@ namespace BlockPuzzle.EditorTools
                    || fontAsset.atlasWidth > 512
                    || fontAsset.atlasHeight > 512
                    || !fontAsset.HasCharacter('\u0444', false, false)
-                   || !fontAsset.HasCharacter('\u0401', false, false);
+                   || !fontAsset.HasCharacter('\u0401', false, false)
+                   || !fontAsset.HasCharacter('\u00d7', false, false);
         }
 
         private static void WireFallbacks(TMP_FontAsset cyrillic)
@@ -221,6 +222,7 @@ namespace BlockPuzzle.EditorTools
             text.Append('\u2116');
             text.Append('\u00AB');
             text.Append('\u00BB');
+            text.Append('\u00D7');
             return text.ToString();
         }
     }

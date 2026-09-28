@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using BlockPuzzle.Core;
+using BlockPuzzle.Levels;
 using BlockPuzzle.Managers;
 using YG;
 
@@ -58,6 +59,8 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData += HandleSdkData;
             PlayerProgress.Changed += PushProgress;
+            PlayerLevel.Changed += PushProgress;
+            LevelProgress.Changed += PushProgress;
             BindManagers();
 
             if (YG2.isSDKEnabled)
@@ -70,6 +73,8 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData -= HandleSdkData;
             PlayerProgress.Changed -= PushProgress;
+            PlayerLevel.Changed -= PushProgress;
+            LevelProgress.Changed -= PushProgress;
             UnbindManagers();
         }
 
@@ -107,6 +112,8 @@ namespace BlockPuzzle.Platform
 
             PlayerProgress.Restore(saves.adsRemoved, saves.ownedThemes, saves.ownedPacks, saves.themeId);
             ApplyCloudBestScore();
+            PlayerLevel.Restore(saves.playerLevel, saves.xp);
+            LevelProgress.Restore(saves.levelsUnlocked, saves.levelStars);
 
             // A save that was never written holds default flags, so it must not
             // overwrite a choice the player already made locally.
@@ -136,7 +143,7 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
-            YG2.SaveProgress();
+            CloudSaveGate.Request();
         }
 
         private bool ApplyToSaves(SavesYG saves)
@@ -159,6 +166,26 @@ namespace BlockPuzzle.Platform
                 saves.bestScore = best;
                 changed = true;
             }
+
+            // Further along wins: an older account copy is never allowed to overwrite it.
+            if (PlayerLevel.Level > saves.playerLevel
+                || (PlayerLevel.Level == saves.playerLevel && PlayerLevel.Xp > saves.xp))
+            {
+                saves.playerLevel = PlayerLevel.Level;
+                saves.xp = PlayerLevel.Xp;
+                changed = true;
+            }
+
+            // Campaign progress only grows: the higher open level and the per-level best stars win, so
+            // a push that runs before the account copy is merged (a purchase restore inside
+            // HandleSdkData) cannot lower what the save already holds.
+            if (LevelProgress.Unlocked > saves.levelsUnlocked)
+            {
+                saves.levelsUnlocked = LevelProgress.Unlocked;
+                changed = true;
+            }
+
+            changed |= Write(ref saves.levelStars, LevelProgress.MergedStarsText(saves.levelStars));
 
             bool muted = ResolveLocalMuted();
             if (saves.muted != muted)

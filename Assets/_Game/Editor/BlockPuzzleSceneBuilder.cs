@@ -86,6 +86,7 @@ namespace BlockPuzzle.EditorTools
             RoundedSpriteGenerator.EnsureAsset();
             PatternSpriteGenerator.EnsureAssets();
             TmpCyrillicFontGenerator.EnsureAsset();
+            MontserratFontGenerator.EnsureFonts();
             UIFactory.ClearCache();
 
             ShapeLibrary library = ShapeLibraryGenerator.EnsureAsset();

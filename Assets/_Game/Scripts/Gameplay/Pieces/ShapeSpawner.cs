@@ -36,9 +36,15 @@ namespace BlockPuzzle.Pieces
         [SerializeField] private RectTransform[] slots = new RectTransform[SlotCount];
         [SerializeField] private BlockPiece piecePrefab;
 
+        /// <summary>Set once the very first run of this install has started; that run gets easy onboarding batches.</summary>
+        private const string OnboardingDoneKey = "BlockPuzzle.OnboardingDone";
+
         [Header("Content")]
         [SerializeField] private ShapeLibrary library;
         [SerializeField, Range(0.2f, 1f)] private float slotScale = 0.55f;
+
+        [Header("Generation")]
+        [SerializeField] private SmartShapeSettings generation = new SmartShapeSettings();
 
         [Header("Layout")]
         [Tooltip("Horizontal gap kept between two neighbouring slots.")]
@@ -51,7 +57,11 @@ namespace BlockPuzzle.Pieces
         [SerializeField, Range(0.5f, 1f)] private float minFitScale = 0.7f;
 
         private readonly DraggableShape[] active = new DraggableShape[SlotCount];
-        private IShapeProvider provider;
+        private readonly BlockShape[] batchBuffer = new BlockShape[SlotCount];
+        private SmartShapeProvider provider;
+        private IShapeProvider scriptedProvider;
+        private Func<int> scoreSource;
+        private Dictionary<string, BlockShape> shapesByName;
         private bool interactable = true;
 
         /// <summary>Raised whenever the set of currently offered figures changes.</summary>
@@ -61,6 +71,28 @@ namespace BlockPuzzle.Pieces
         public event Action BatchSpawned;
 
         public IReadOnlyList<RectTransform> Slots => slots;
+
+        /// <summary>Layer a figure is moved to while it is being dragged.</summary>
+        public RectTransform DragLayer => dragLayer;
+
+        /// <summary>Figure currently waiting in <paramref name="slot"/>, or null.</summary>
+        public DraggableShape GetShape(int slot)
+        {
+            if (slot < 0 || slot >= SlotCount)
+            {
+                return null;
+            }
+
+            DraggableShape draggable = active[slot];
+            return draggable != null && !draggable.IsConsumed ? draggable : null;
+        }
+
+        /// <summary>
+        /// Scripted dealer for the first batch of the next <see cref="Restart"/>: one
+        /// <see cref="IShapeProvider.Next"/> per slot, a null leaves the slot empty. Later
+        /// batches come from the regular dealer again.
+        /// </summary>
+        public void SetNextBatch(IShapeProvider scripted) => scriptedProvider = scripted;
 
         public int RemainingCount
         {
@@ -130,7 +162,85 @@ namespace BlockPuzzle.Pieces
         }
 
         /// <summary>
-        /// Fills one empty slot with a random figure from the library. False when the tray is full.
+        /// Continues a saved run: a fresh dealer (without the onboarding batches) and the
+        /// saved tray. Like <see cref="Restart"/>, the figures drop in on the next frame,
+        /// once the canvas layout knows how wide a slot is. An empty tray is dealt anew.
+        /// </summary>
+        public void ResumeRun(IReadOnlyList<BlockShape> shapes)
+        {
+            provider = CreateProvider();
+            provider.BeginRun(false);
+            scriptedProvider = null;
+            ClearAll();
+            LayoutSlots();
+
+            if (isActiveAndEnabled)
+            {
+                StartCoroutine(ResumeTrayNextFrame(shapes));
+            }
+            else
+            {
+                ResumeTray(shapes);
+            }
+        }
+
+        /// <summary>
+        /// Figure of the catalog (free set or a pack) with this <see cref="BlockShape.DisplayName"/>,
+        /// or null. Used to bring a saved tray back.
+        /// </summary>
+        public BlockShape FindShape(string displayName)
+        {
+            if (string.IsNullOrEmpty(displayName))
+            {
+                return null;
+            }
+
+            if (shapesByName == null)
+            {
+                shapesByName = new Dictionary<string, BlockShape>(StringComparer.Ordinal);
+                IReadOnlyList<BlockShape> source = library != null ? library.Shapes : ShapeCatalog.CreateDefaultShapes();
+                IReadOnlyList<BlockShape> extra = library != null ? library.Pack1 : ShapeCatalog.CreatePack1Shapes();
+                IndexShapes(source);
+                IndexShapes(extra);
+            }
+
+            return shapesByName.TryGetValue(displayName, out BlockShape shape) ? shape : null;
+        }
+
+        private void IndexShapes(IReadOnlyList<BlockShape> shapes)
+        {
+            if (shapes == null)
+            {
+                return;
+            }
+
+            foreach (BlockShape shape in shapes)
+            {
+                if (shape != null && !string.IsNullOrEmpty(shape.DisplayName) && !shapesByName.ContainsKey(shape.DisplayName))
+                {
+                    shapesByName.Add(shape.DisplayName, shape);
+                }
+            }
+        }
+
+        private IEnumerator ResumeTrayNextFrame(IReadOnlyList<BlockShape> shapes)
+        {
+            yield return null;
+            ResumeTray(shapes);
+        }
+
+        private void ResumeTray(IReadOnlyList<BlockShape> shapes)
+        {
+            RestoreShapes(shapes);
+            if (RemainingCount == 0)
+            {
+                SpawnBatch();
+            }
+        }
+
+        /// <summary>
+        /// Fills one empty slot with a figure that fits the board right now. False when the tray
+        /// is full or no figure of the library fits anywhere.
         /// </summary>
         public bool TryGrantExtraShape()
         {
@@ -140,7 +250,7 @@ namespace BlockPuzzle.Pieces
                 return false;
             }
 
-            BlockShape shape = DrawLibraryShape();
+            BlockShape shape = DrawFittingShape();
             if (shape == null)
             {
                 return false;
@@ -157,9 +267,13 @@ namespace BlockPuzzle.Pieces
             dragLayer = layer;
             slots = slotRects;
             library = shapeLibrary;
+            shapesByName = null;
             EnsureBottomDocked();
             LayoutSlots();
         }
+
+        /// <summary>Current run score, read by the generator to ramp up large figures.</summary>
+        public void SetScoreSource(Func<int> source) => scoreSource = source;
 
         private void Awake()
         {
@@ -213,7 +327,32 @@ namespace BlockPuzzle.Pieces
         /// </summary>
         public void Restart()
         {
-            provider = WeightedShapeProvider.FromLibrary(library);
+            provider = CreateProvider();
+            provider.BeginRun(ConsumeFirstRun());
+            ClearAll();
+            LayoutSlots();
+
+            if (isActiveAndEnabled)
+            {
+                StartCoroutine(SpawnFirstBatch());
+            }
+            else
+            {
+                SpawnBatch();
+            }
+        }
+
+        /// <summary>
+        /// Empties the spawn area for a level. The dealer is seeded with the level's seed, so a level
+        /// always starts with the same figures; it keeps the line-finishing assist but has no
+        /// onboarding batches and never draws from the paid figure pack.
+        /// </summary>
+        public void RestartLevel(int shapeSeed)
+        {
+            provider = CreateProvider(shapeSeed);
+            provider.IncludePaidPack = false;
+            provider.BeginRun(false);
+            scriptedProvider = null;
             ClearAll();
             LayoutSlots();
 
@@ -381,12 +520,27 @@ namespace BlockPuzzle.Pieces
 
         private void SpawnBatch()
         {
-            provider ??= WeightedShapeProvider.FromLibrary(library);
+            provider ??= CreateProvider();
             LayoutSlots();
+
+            if (scriptedProvider != null)
+            {
+                for (int i = 0; i < SlotCount; i++)
+                {
+                    batchBuffer[i] = scriptedProvider.Next();
+                }
+
+                scriptedProvider = null;
+            }
+            else
+            {
+                provider.FillBatch(batchBuffer);
+            }
 
             for (int i = 0; i < SlotCount; i++)
             {
-                SpawnAt(i, provider.Next());
+                SpawnAt(i, batchBuffer[i]);
+                batchBuffer[i] = null;
             }
 
             BatchSpawned?.Invoke();
@@ -494,10 +648,37 @@ namespace BlockPuzzle.Pieces
             return -1;
         }
 
-        private BlockShape DrawLibraryShape()
+        private BlockShape DrawFittingShape()
         {
-            provider ??= WeightedShapeProvider.FromLibrary(library);
-            return provider.Next();
+            provider ??= CreateProvider();
+            return provider.NextFitting();
+        }
+
+        /// <summary>A dealer with a random seed, or with <paramref name="seed"/> when a level asks for a fixed one.</summary>
+        private SmartShapeProvider CreateProvider(int? seed = null)
+        {
+            IReadOnlyList<BlockShape> source = library != null ? library.Shapes : ShapeCatalog.CreateDefaultShapes();
+            IReadOnlyList<BlockShape> extra = library != null ? library.Pack1 : ShapeCatalog.CreatePack1Shapes();
+            return new SmartShapeProvider(
+                source,
+                extra,
+                () => grid != null ? grid.Model : null,
+                () => scoreSource != null ? scoreSource() : 0,
+                generation,
+                seed ?? (Environment.TickCount ^ UnityEngine.Random.Range(0, int.MaxValue)));
+        }
+
+        /// <summary>True exactly once per install: for the run that starts first.</summary>
+        private static bool ConsumeFirstRun()
+        {
+            if (PlayerPrefs.GetInt(OnboardingDoneKey, 0) != 0)
+            {
+                return false;
+            }
+
+            PlayerPrefs.SetInt(OnboardingDoneKey, 1);
+            PlayerPrefs.Save();
+            return true;
         }
 
         private void ClearAll()

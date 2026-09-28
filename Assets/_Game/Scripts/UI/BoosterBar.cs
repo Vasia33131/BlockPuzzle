@@ -33,6 +33,7 @@ namespace BlockPuzzle.UI
 
         private static readonly Color DisabledIcon = new Color(0.72f, 0.72f, 0.76f, 0.5f);
         private static readonly Color BadgeRed = new Color(1f, 0.08f, 0.12f, 1f);
+        private static readonly Color StockGreen = GameTheme.ShopBuy;
         private static readonly Vector2 BadgeSize = new Vector2(120f, 96f);
         private static readonly Vector2 BadgeOffset = new Vector2(-8f, 8f);
         private static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
@@ -212,6 +213,14 @@ namespace BlockPuzzle.UI
                 return;
             }
 
+            // Stock from the daily reward and tasks goes before any ad.
+            if (boosters != null && BoosterController.StockCount(type) > 0)
+            {
+                boosters.TryConsumeStock(type);
+                RefreshAvailability();
+                return;
+            }
+
             if (confirmPanel != null)
             {
                 confirmPanel.Show(type, rewardedRequest);
@@ -242,9 +251,9 @@ namespace BlockPuzzle.UI
             ApplyButton(undoButton, undoImage, playing && boosters != null && boosters.CanUndo);
             ApplyButton(extraButton, extraImage, playing && boosters != null && boosters.CanExtraPiece);
             ApplyButton(clearButton, clearImage, playing && boosters != null && boosters.CanClearLine);
-            ApplyBadge(undoBadge, boosters != null && boosters.HasFree(FreeBoosterType.Undo));
-            ApplyBadge(extraBadge, boosters != null && boosters.HasFree(FreeBoosterType.Extra));
-            ApplyBadge(clearBadge, boosters != null && boosters.HasFree(FreeBoosterType.Clear));
+            ApplyBadge(undoBadge, boosters, FreeBoosterType.Undo);
+            ApplyBadge(extraBadge, boosters, FreeBoosterType.Extra);
+            ApplyBadge(clearBadge, boosters, FreeBoosterType.Clear);
         }
 
         private bool IsPlaying() => gameManager != null && gameManager.State == GameState.Playing;
@@ -276,11 +285,41 @@ namespace BlockPuzzle.UI
             }
         }
 
-        private static void ApplyBadge(TextMeshProUGUI badge, bool visible)
+        /// <summary>
+        /// Red "+1" for the free charge of this run (spent first); otherwise the green
+        /// stock count kept between runs; nothing when the next tap asks for an ad.
+        /// </summary>
+        private static void ApplyBadge(TextMeshProUGUI badge, BoosterController boosters, FreeBoosterType type)
         {
-            if (badge != null)
+            if (badge == null)
+            {
+                return;
+            }
+
+            bool free = boosters != null && boosters.HasFree(type);
+            int stock = boosters != null ? BoosterController.StockCount(type) : 0;
+            bool visible = free || stock > 0;
+            if (badge.gameObject.activeSelf != visible)
             {
                 badge.gameObject.SetActive(visible);
+            }
+
+            if (!visible)
+            {
+                return;
+            }
+
+            string text = free ? "+1" : "x" + stock;
+            Color color = free ? BadgeRed : StockGreen;
+            if (badge.text != text)
+            {
+                badge.text = text;
+            }
+
+            if (badge.color != color)
+            {
+                badge.color = color;
+                badge.outlineColor = color;
             }
         }
 
@@ -463,7 +502,7 @@ namespace BlockPuzzle.UI
 
             badge.text = "+1";
             badge.fontSize = BadgeFontSize;
-            badge.fontStyle = FontStyles.Bold;
+            GameFonts.Apply(badge, FontRole.Heading);
             badge.alignment = TextAlignmentOptions.Center;
             badge.color = BadgeRed;
             badge.raycastTarget = false;

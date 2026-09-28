@@ -269,6 +269,28 @@ namespace BlockPuzzle.Bootstrap
             return panel;
         }
 
+        /// <summary>
+        /// Builds the full-screen main menu, or rebinds the one already in the scene.
+        /// It is created last so it covers the HUD, the board and every other overlay.
+        /// </summary>
+        public static MainMenuPanel EnsureMainMenuPanel(RectTransform canvasRect, GameManager gameManager)
+        {
+            MainMenuPanel existing = Object.FindObjectOfType<MainMenuPanel>(true);
+            if (existing != null)
+            {
+                existing.Bind(gameManager);
+                return existing;
+            }
+
+            return canvasRect != null ? CreateMainMenuPanel(canvasRect, gameManager) : null;
+        }
+
+        private static MainMenuPanel CreateMainMenuPanel(RectTransform parent, GameManager gameManager)
+        {
+            // The menu builds itself (background, logo, buttons, profile widgets); see MainMenuPanel.
+            return MainMenuPanel.Create(parent, gameManager);
+        }
+
         /// <summary>Unbound pause overlay hierarchy, used when baking the PausePanel prefab.</summary>
         public static PausePanel BuildPausePanelHierarchy(RectTransform parent)
         {
@@ -484,18 +506,19 @@ namespace BlockPuzzle.Bootstrap
             shopButton = CreateHudShopButton(panel);
             pauseButton = CreatePauseButton(panel);
 
-            TextMeshProUGUI combo = UIFactory.CreateText(
-                "ComboLabel", panel, string.Empty, 36f, GameTheme.Accent, TextAlignmentOptions.Center, FontStyles.Bold);
+            // Hidden until the run beats the record; the scene may still call it ComboLabel.
+            TextMeshProUGUI record = UIFactory.CreateText(
+                "RecordLabel", panel, string.Empty, 36f, GameTheme.Accent, TextAlignmentOptions.Center, FontStyles.Bold);
             UIFactory.Anchor(
-                combo.rectTransform,
+                record.rectTransform,
                 new Vector2(0.5f, 0f),
                 new Vector2(0.5f, 1f),
                 new Vector2(0f, -8f),
                 new Vector2(600f, 48f));
-            combo.color = new Color(GameTheme.Accent.r, GameTheme.Accent.g, GameTheme.Accent.b, 0f);
+            record.color = new Color(GameTheme.Accent.r, GameTheme.Accent.g, GameTheme.Accent.b, 0f);
 
             var hud = panel.gameObject.AddComponent<HudController>();
-            hud.Bind(scoreManager, scoreValue, bestValue, combo);
+            hud.Bind(scoreManager, scoreValue, bestValue, record);
             return hud;
         }
 
@@ -1600,7 +1623,7 @@ namespace BlockPuzzle.Bootstrap
             badge = badgeText;
 
             TextMeshProUGUI scoreCaption = UIFactory.CreateText(
-                "ScoreCaption", card, GameLocalization.ScoreCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "ScoreCaption", card, GameLocalization.ScoreCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Normal, FontRole.Body);
             UIFactory.Anchor(scoreCaption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -230f), new Vector2(800f, 50f));
 
             TextMeshProUGUI scoreValueText = UIFactory.CreateText(
@@ -1609,7 +1632,7 @@ namespace BlockPuzzle.Bootstrap
             scoreValue = scoreValueText;
 
             TextMeshProUGUI bestCaption = UIFactory.CreateText(
-                "BestCaption", card, GameLocalization.BestCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Bold);
+                "BestCaption", card, GameLocalization.BestCaption, 36f, GameTheme.TextSecondary, TextAlignmentOptions.Center, FontStyles.Normal, FontRole.Body);
             UIFactory.Anchor(bestCaption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -420f), new Vector2(800f, 50f));
 
             TextMeshProUGUI bestValueText = UIFactory.CreateText(
@@ -1654,9 +1677,9 @@ namespace BlockPuzzle.Bootstrap
                 "ContinueButton",
                 card,
                 GameLocalization.ContinueAd,
-                GameTheme.ButtonSecondary,
-                GameTheme.TextPrimary,
-                32f);
+                GameTheme.ShopBuy,
+                GameTheme.ShopBuyLabel,
+                40f);
             UIFactory.Anchor(
                 (RectTransform)continueButton.transform,
                 new Vector2(0.5f, 0f),
@@ -1666,7 +1689,7 @@ namespace BlockPuzzle.Bootstrap
             continueButton.gameObject.SetActive(false);
 
             button = UIFactory.CreateButton(
-                "RestartButton", card, GameLocalization.Restart, GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 36f);
+                "RestartButton", card, GameLocalization.PlayAgain, GameTheme.Accent, GameTheme.FromHex("#1a1a2e"), 46f);
             UIFactory.Anchor(
                 (RectTransform)button.transform,
                 new Vector2(0.5f, 0f),

@@ -51,6 +51,9 @@ namespace BlockPuzzle.UI
         [SerializeField] private float spawnAreaHeightLandscape = 120f;
         [SerializeField] private bool useDynamicBoardFit = true;
 
+        /// <summary>Raised after the layout was recomputed for portrait (true) or landscape (false), so full-screen views can follow.</summary>
+        public static event System.Action<bool> LayoutApplied;
+
         private ScreenOrientation lastOrientation;
         private Vector2Int lastResolution;
         private bool lastPortrait;
@@ -211,6 +214,7 @@ namespace BlockPuzzle.UI
             lastOrientation = Screen.orientation;
             lastResolution = new Vector2Int(Screen.width, Screen.height);
             lastPortrait = isPortrait;
+            LayoutApplied?.Invoke(isPortrait);
         }
 
         private void ApplyCanvasScaler(bool isPortrait)

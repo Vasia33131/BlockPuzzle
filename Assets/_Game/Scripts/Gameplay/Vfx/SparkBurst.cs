@@ -87,6 +87,26 @@ namespace BlockPuzzle.Vfx
             }
         }
 
+        /// <summary>
+        /// Big firework for a special moment such as an emptied board: <paramref name="count"/>
+        /// sparks in the colours of <paramref name="palette"/>, thrown <paramref name="reach"/>
+        /// times further than a line spark. It may overshoot the regular cap once, because the
+        /// line sparks of the same move are usually still in the air.
+        /// </summary>
+        public void Burst(Vector2 anchoredPosition, IReadOnlyList<Color> palette, int count, float reach)
+        {
+            if (!Application.isPlaying || palette == null || palette.Count == 0)
+            {
+                return;
+            }
+
+            int budget = Mathf.Min(count, maxLiveSparks * 2 - live.Count);
+            for (int i = 0; i < budget; i++)
+            {
+                Launch(anchoredPosition, palette[i % palette.Count], reach);
+            }
+        }
+
         /// <summary>Cancels every spark in flight, used when a run restarts.</summary>
         public void Clear()
         {
@@ -106,7 +126,7 @@ namespace BlockPuzzle.Vfx
             live.Clear();
         }
 
-        private void Launch(Vector2 origin, Color color)
+        private void Launch(Vector2 origin, Color color, float reach = 1f)
         {
             Image spark = Rent();
             RectTransform sparkRect = spark.rectTransform;
@@ -118,9 +138,9 @@ namespace BlockPuzzle.Vfx
                 direction = Vector2.up;
             }
 
-            float distance = Random.Range(minDistance, maxDistance);
-            float duration = Random.Range(minDuration, maxDuration);
-            float size = sparkSize * Random.Range(0.6f, 1.15f);
+            float distance = Random.Range(minDistance, maxDistance) * reach;
+            float duration = Random.Range(minDuration, maxDuration) * Mathf.Lerp(1f, reach, 0.4f);
+            float size = sparkSize * Random.Range(0.6f, 1.15f) * Mathf.Lerp(1f, reach, 0.25f);
 
             sparkRect.sizeDelta = new Vector2(size, size);
             sparkRect.anchoredPosition = origin + jitter;

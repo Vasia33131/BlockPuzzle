@@ -24,6 +24,9 @@ namespace BlockPuzzle.Managers
         /// <summary>True when a successful drop can still be reversed.</summary>
         public bool CanUndo => hasUndo && undoBoard != null;
 
+        /// <summary>Raised after an undo put the board and the tray back. A level rolls its counters back here.</summary>
+        public event System.Action Undone;
+
         public void Configure(GridManager gridManager, ShapeSpawner shapeSpawner)
         {
             Unsubscribe();
@@ -67,6 +70,7 @@ namespace BlockPuzzle.Managers
             grid?.RestoreBoard(board);
             spawner?.RestoreShapes(shapes);
             CaptureSettled();
+            Undone?.Invoke();
             return true;
         }
 

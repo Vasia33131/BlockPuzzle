@@ -41,6 +41,7 @@ namespace BlockPuzzle.Pieces
 
         public BlockShape Shape => shape;
         public bool IsConsumed => consumed;
+        public bool IsDragging => dragging;
         public bool Interactable { get; set; } = true;
 
         private BlockPiece piecePrefab;

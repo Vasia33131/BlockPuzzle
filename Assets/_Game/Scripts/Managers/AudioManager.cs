@@ -27,10 +27,26 @@ namespace BlockPuzzle.Managers
         [Tooltip("Pitch added for every line cleared beyond the first.")]
         [SerializeField, Range(0f, 0.3f)] private float clearPitchPerExtraLine = 0.06f;
 
+        [Tooltip("Semitones the clear rises for every combo step, so a streak audibly climbs.")]
+        [SerializeField, Range(0f, 4f)] private float comboSemitoneStep = 2f;
+
+        [Tooltip("Combo steps that still raise the pitch; later ones repeat the top note.")]
+        [SerializeField, Range(0, 12)] private int maxComboSteps = 4;
+
+        [Header("Board clear")]
+        [SerializeField, Range(0f, 1f)] private float boardClearVolume = 0.8f;
+
+        [Tooltip("Below 1 makes it deeper than a line clear; it starts a moment later so the two do not smear.")]
+        [SerializeField, Range(0.4f, 1.2f)] private float boardClearPitch = 0.7f;
+
+        [SerializeField, Range(0f, 0.5f)] private float boardClearDelay = 0.14f;
+
         private AudioSource placeSource;
         private AudioSource clearSource;
+        private AudioSource fanfareSource;
         private AudioClip placeClip;
         private AudioClip clearClip;
+        private AudioClip fanfareClip;
 
         public bool IsMuted { get; private set; }
 
@@ -57,9 +73,10 @@ namespace BlockPuzzle.Managers
 
         /// <summary>
         /// Sparkle for a cleared line, louder and higher the more lines went at once, so a
-        /// double or a triple is audible as an achievement rather than as a repeat.
+        /// double or a triple is audible as an achievement rather than as a repeat. Every
+        /// step of a running <paramref name="combo"/> lifts it further, up the scale.
         /// </summary>
-        public void PlayLineClear(int lines)
+        public void PlayLineClear(int lines, int combo = 1)
         {
             if (lines <= 0 || IsMuted || !EnsureSources())
             {
@@ -69,8 +86,25 @@ namespace BlockPuzzle.Managers
             int extra = lines - 1;
             float volume = Mathf.Clamp01(clearVolume + extra * clearVolumePerExtraLine) * masterVolume;
 
-            clearSource.pitch = 1f + Mathf.Min(extra, 3) * clearPitchPerExtraLine;
+            int comboSteps = Mathf.Clamp(combo - 1, 0, maxComboSteps);
+            float comboPitch = Mathf.Pow(2f, comboSteps * comboSemitoneStep / 12f);
+
+            clearSource.pitch = (1f + Mathf.Min(extra, 3) * clearPitchPerExtraLine) * comboPitch;
             clearSource.PlayOneShot(clearClip, volume);
+        }
+
+        /// <summary>Long, lower arpeggio that follows the line sparkle when the board is emptied.</summary>
+        public void PlayBoardClear()
+        {
+            if (IsMuted || !EnsureSources())
+            {
+                return;
+            }
+
+            fanfareSource.clip = fanfareClip;
+            fanfareSource.pitch = boardClearPitch;
+            fanfareSource.volume = boardClearVolume * masterVolume;
+            fanfareSource.PlayDelayed(boardClearDelay);
         }
 
         public void SetMuted(bool muted)
@@ -100,16 +134,17 @@ namespace BlockPuzzle.Managers
             {
                 placeSource?.Stop();
                 clearSource?.Stop();
+                fanfareSource?.Stop();
             }
         }
 
         /// <summary>
-        /// Creates the two clips and the two sources on first use. The sources are kept apart
-        /// so that re-pitching a line clear never bends a click that is still ringing.
+        /// Creates the clips and the sources on first use. The sources are kept apart so that
+        /// re-pitching a line clear never bends a click that is still ringing.
         /// </summary>
         private bool EnsureSources()
         {
-            if (placeSource != null && clearSource != null)
+            if (placeSource != null && clearSource != null && fanfareSource != null)
             {
                 return true;
             }
@@ -121,9 +156,11 @@ namespace BlockPuzzle.Managers
 
             placeClip = placeClip != null ? placeClip : ProceduralSfx.CreateClick();
             clearClip = clearClip != null ? clearClip : ProceduralSfx.CreateSparkle();
+            fanfareClip = fanfareClip != null ? fanfareClip : ProceduralSfx.CreateSparkle(6);
 
             placeSource = placeSource != null ? placeSource : CreateSource("Place");
             clearSource = clearSource != null ? clearSource : CreateSource("LineClear");
+            fanfareSource = fanfareSource != null ? fanfareSource : CreateSource("BoardClear");
             return true;
         }
 

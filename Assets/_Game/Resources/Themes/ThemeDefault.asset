@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ThemeDefault
   m_EditorClassIdentifier: 
   id: default
+  coinPrice: -1
   displayName: "\u041A\u043B\u0430\u0441\u0441\u0438\u043A\u0430"
   backgroundTop: {r: 0.101960786, g: 0.101960786, b: 0.18039216, a: 1}
   backgroundBottom: {r: 0.08627451, g: 0.12941177, b: 0.24313726, a: 1}

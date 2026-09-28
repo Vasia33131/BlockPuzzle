@@ -6,6 +6,7 @@ namespace BlockPuzzle.Platform
 {
     /// <summary>
     /// Shows or hides the Yandex sticky (bottom) banner. Off after ad removal.
+    /// Also off while the first-run tutorial is on screen.
     /// The banner waits for the account copy of the purchases, so a player who bought
     /// no-ads on another device never sees it flash on this one.
     /// Lives outside game asmdefs so it can reference PluginYG2 (Assembly-CSharp).
@@ -30,8 +31,9 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData += HandleSdkData;
             YandexCloudProgressService.Restored += HandleSdkData;
+            TutorialProgress.ActiveChanged += HandleTutorialActive;
 
-            if (PlayerProgress.AdsRemoved)
+            if (PlayerProgress.AdsRemoved || TutorialProgress.IsActive)
             {
                 YG2.StickyAdActivity(false);
                 return;
@@ -47,11 +49,14 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData -= HandleSdkData;
             YandexCloudProgressService.Restored -= HandleSdkData;
+            TutorialProgress.ActiveChanged -= HandleTutorialActive;
         }
+
+        private void HandleTutorialActive(bool active) => HandleSdkData();
 
         private void HandleSdkData()
         {
-            if (PlayerProgress.AdsRemoved)
+            if (PlayerProgress.AdsRemoved || TutorialProgress.IsActive)
             {
                 YG2.StickyAdActivity(false);
                 return;

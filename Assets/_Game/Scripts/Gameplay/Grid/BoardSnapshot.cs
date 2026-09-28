@@ -3,17 +3,19 @@ using UnityEngine;
 namespace BlockPuzzle.Grid
 {
     /// <summary>
-    /// Independent copy of a <see cref="GridModel"/> board: occupancy and cell colours.
-    /// Safe to keep across later mutations of the live model.
+    /// Independent copy of a <see cref="GridModel"/> board: occupancy, cell colours and the
+    /// level tags (crystal, marked). Safe to keep across later mutations of the live model.
     /// </summary>
     public sealed class BoardSnapshot
     {
-        public BoardSnapshot(int size, bool[,] occupied, Color[,] colors)
+        public BoardSnapshot(int size, bool[,] occupied, Color[,] colors, bool[,] crystal = null, bool[,] marked = null)
         {
             Size = Mathf.Max(1, size);
             Occupied = new bool[Size, Size];
             Colors = new Color[Size, Size];
-            CopyFrom(occupied, colors);
+            Crystal = new bool[Size, Size];
+            Marked = new bool[Size, Size];
+            CopyFrom(occupied, colors, crystal, marked);
         }
 
         public int Size { get; }
@@ -21,6 +23,12 @@ namespace BlockPuzzle.Grid
         public bool[,] Occupied { get; }
 
         public Color[,] Colors { get; }
+
+        /// <summary>Cells that carry a crystal. Only levels with a Gems goal have any.</summary>
+        public bool[,] Crystal { get; }
+
+        /// <summary>Cells flagged as goal cells. Only ClearMarked levels have any.</summary>
+        public bool[,] Marked { get; }
 
         /// <summary>
         /// Maps every occupied cell through <paramref name="remap"/> so an undo step
@@ -46,7 +54,7 @@ namespace BlockPuzzle.Grid
         }
 
         /// <summary>Writes this snapshot into the destination arrays, which must match <see cref="Size"/>.</summary>
-        public void CopyTo(bool[,] occupied, Color[,] colors)
+        public void CopyTo(bool[,] occupied, Color[,] colors, bool[,] crystal = null, bool[,] marked = null)
         {
             if (occupied == null || colors == null)
             {
@@ -59,11 +67,21 @@ namespace BlockPuzzle.Grid
                 {
                     occupied[row, col] = Occupied[row, col];
                     colors[row, col] = Colors[row, col];
+
+                    if (crystal != null)
+                    {
+                        crystal[row, col] = Crystal[row, col];
+                    }
+
+                    if (marked != null)
+                    {
+                        marked[row, col] = Marked[row, col];
+                    }
                 }
             }
         }
 
-        private void CopyFrom(bool[,] occupied, Color[,] colors)
+        private void CopyFrom(bool[,] occupied, Color[,] colors, bool[,] crystal, bool[,] marked)
         {
             if (occupied == null || colors == null)
             {
@@ -79,6 +97,8 @@ namespace BlockPuzzle.Grid
                 {
                     Occupied[row, col] = occupied[row, col];
                     Colors[row, col] = colors[row, col];
+                    Crystal[row, col] = crystal != null && crystal[row, col];
+                    Marked[row, col] = marked != null && marked[row, col];
                 }
             }
         }
