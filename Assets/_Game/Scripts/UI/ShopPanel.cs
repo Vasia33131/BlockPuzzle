@@ -9,52 +9,62 @@ using BlockPuzzle.Managers;
 namespace BlockPuzzle.UI
 {
     /// <summary>
-    /// Overlay opened from the HUD shop button. Products: remove ads, the free
-    /// classic palette <see cref="ThemeConfig.DefaultId"/>, the two paid palettes
-    /// <see cref="ThemeConfig.OceanId"/> and <see cref="ThemeConfig.CandyId"/>,
-    /// and the extra-figure pack <see cref="PlayerProgress.ShapesPack1Id"/>.
+    /// Full-screen shop opened from the HUD shop button or the coin counter. Sections: colour themes
+    /// (the free classic palette <see cref="ThemeConfig.DefaultId"/>, the paid <see cref="ThemeConfig.OceanId"/>
+    /// and <see cref="ThemeConfig.CandyId"/>), the extra-figure pack <see cref="PlayerProgress.ShapesPack1Id"/>
+    /// and the no-ads product. The layout itself lives in <see cref="ShopLayout"/>.
     ///
-    /// Prices come from the payments catalog only (Yandex 1.13.2 / 1.13.4): until the
-    /// SDK answers, a product shows no price and cannot be bought. There is no
-    /// hand-written amount and no placeholder that could pass for one. No-ads and
-    /// theme cards draw the catalog string on the Buy button itself. The figure pack
-    /// first opens a preview of the extra shapes; the green CTA on that plaque shows
-    /// the price. A leftover Price label is hidden.
+    /// Prices come from the payments catalog only (Yandex 1.13.2 / 1.13.4): a button shows the catalog
+    /// amount with the catalog currency icon, or the whole catalog string while the icon has not loaded.
+    /// A product the catalog does not list gets an inactive "Unavailable" button and a log warning; there is
+    /// no hand-written amount. Prices in coins show the coin glyph and the number.
     /// </summary>
     public class ShopPanel : MonoBehaviour
     {
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
-        private const string CurrencyIconName = "CurrencyIcon";
-        private const string PackPreviewName = "PackPreview";
-        private const float CurrencyIconGap = 8f;
+        private const float ShowScale = 0.94f;
         private const string NoAdsProductId = "no_ads";
-        private const string CoinBalanceName = "CoinBalance";
-        private const string CoinBuyButtonName = "CoinBuyButton";
+        private const string LegacyPackPreviewName = "PackPreview";
         private const float CoinConfirmSeconds = 3f;
+        private const float PreviewSeconds = 3f;
+
+        // Canvas units of the 1080x1920 reference: only a landscape screen is wide enough for two columns.
+        private const float TwoColumnMinWidth = 1500f;
+        private const float PortraitMaxWidth = 1000f;
+        private const float LandscapeMaxWidth = 1900f;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private Button hudShopButton;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private RectTransform card;
-        [SerializeField] private TMP_Text priceLabel;
-        [SerializeField] private Button buyButton;
-        [SerializeField] private Button backButton;
 
-        private TMP_Text buyLabel;
-        private TMP_Text coinBalance;
+        private ShopViews views;
+        private Image cardBackground;
+        private Image dim;
+        private readonly List<ShopPriceButton> priceButtons = new List<ShopPriceButton>(5);
         private readonly Dictionary<string, string> catalogPrices = new Dictionary<string, string>(StringComparer.Ordinal);
-        private readonly List<ThemeCard> themeCards = new List<ThemeCard>(3);
-        private ThemeCard packCard;
-        private CanvasGroup packPreviewGroup;
-        private RectTransform packPreviewCard;
-        private RectTransform packPreviewFigures;
-        private Button packPreviewBuy;
-        private TMP_Text packPreviewBuyLabel;
-        private Button packPreviewCancel;
+        private readonly HashSet<string> warnedMissing = new HashSet<string>(StringComparer.Ordinal);
         private bool visible;
-        private bool packPreviewVisible;
+        private bool previewing;
+        private float previewUntil;
+        private float layoutWidth;
         private int restoreSiblingIndex = -1;
+
+        private enum ButtonKind
+        {
+            /// <summary>Green: pay for it.</summary>
+            Buy,
+
+            /// <summary>Muted but tappable: pick an owned theme.</summary>
+            Choose,
+
+            /// <summary>Muted with a check mark: already selected or bought.</summary>
+            Done,
+
+            /// <summary>Muted and dead: cannot be bought right now.</summary>
+            Off
+        }
 
         /// <summary>True while the shop covers the board. Platform code stops GameplayAPI on it.</summary>
         public bool IsOpen => visible;
@@ -64,6 +74,12 @@ namespace BlockPuzzle.UI
 
         /// <summary>Raised when the player taps Buy on a theme they do not own yet.</summary>
         public event Action<string> ThemeBuyRequested;
+
+        /// <summary>Raised when the player taps Watch on the coins-for-an-ad card. Platform code shows the video.</summary>
+        public event Action CoinAdRequested;
+
+        /// <summary>Raised when the player taps Buy on a coin pack. Platform code starts payment.</summary>
+        public event Action<string> CoinPackBuyRequested;
 
         /// <summary>Raised when the player taps Buy on a figure pack they do not own yet.</summary>
         public event Action<string> PackBuyRequested;
@@ -85,16 +101,10 @@ namespace BlockPuzzle.UI
             GameManager manager,
             Button hudShop,
             CanvasGroup group,
-            RectTransform cardRect,
-            TMP_Text price,
-            Button buy,
-            Button back)
+            RectTransform cardRect)
         {
             canvasGroup = group;
             card = cardRect;
-            priceLabel = price;
-            buyButton = buy;
-            backButton = back;
             Bind(manager, hudShop);
         }
 
@@ -110,15 +120,7 @@ namespace BlockPuzzle.UI
                 gameManager.StateChanged += HandleStateChanged;
             }
 
-            GameTheme.Changed += HandleThemeChanged;
-
             Listen(hudShopButton, HandleHudShopClicked);
-            Listen(buyButton, HandleBuyClicked);
-            Listen(backButton, HandleBackClicked);
-            Listen(packPreviewBuy, HandlePackPreviewBuyClicked);
-            Listen(packPreviewCancel, HandlePackPreviewCancelClicked);
-            BindThemeCards();
-            BindPackCard();
             GameLocalization.LanguageChanged += HandleLanguageChanged;
             MetaProgress.Changed += HandleMetaChanged;
 
@@ -133,8 +135,7 @@ namespace BlockPuzzle.UI
         /// <summary>
         /// Price of a product exactly as the payments catalog returned it (digits plus
         /// the portal currency). Pass null or empty when the product is missing from the
-        /// catalog or the catalog has not arrived yet: the card then shows no price and
-        /// its Buy button stays off.
+        /// catalog or the catalog has not arrived yet: its button then reads "Unavailable".
         /// </summary>
         public void SetProductOffer(string productId, string price)
         {
@@ -148,52 +149,85 @@ namespace BlockPuzzle.UI
         }
 
         /// <summary>
-        /// Currency icon slot next to the catalog price on the Buy button, created on
-        /// first request. Platform code loads <c>purchase.currencyImageURL</c> into it.
+        /// Currency icon slot next to the catalog price on the Buy button.
+        /// Platform code loads <c>purchase.currencyImageURL</c> into it.
         /// </summary>
         public Image ResolveCurrencyIcon(string productId)
         {
             ResolveRefs();
-            return EnsureCurrencyIcon(ActionLabelFor(productId));
+            return PriceButtonFor(productId)?.CurrencyIcon;
         }
 
         public void RefreshPurchaseState()
         {
             ResolveRefs();
-            HideLegacyPrice(priceLabel);
-
-            bool owned = PlayerProgress.AdsRemoved;
-            bool sellable = !owned && HasOffer(NoAdsProductId);
-            ApplyActionButton(
-                buyButton,
-                buyLabel,
-                !owned,
-                sellable,
-                owned ? GameLocalization.Purchased : (sellable ? PriceText(NoAdsProductId) : string.Empty),
-                showCurrencyIcon: sellable);
-
-            for (int i = 0; i < themeCards.Count; i++)
+            if (views == null)
             {
-                RefreshThemeCard(themeCards[i]);
+                return;
             }
 
-            RefreshPackCard();
-            RefreshPackPreview();
+            ApplyOffer(views.NoAds.Action, NoAdsProductId, PlayerProgress.AdsRemoved);
+            Paint(views.CoinAd.Action, GameLocalization.ShopCoinAdAction, ButtonKind.Buy, showIcon: false, tick: false);
+            for (int i = 0; i < views.CoinPacks.Count; i++)
+            {
+                // A pack the catalog does not list is hidden rather than shown as "Unavailable".
+                ShopCoinOfferCard pack = views.CoinPacks[i];
+                bool onSale = HasOffer(pack.ProductId);
+                pack.Root.SetActive(onSale);
+                if (onSale)
+                {
+                    ApplyOffer(pack.Action, pack.ProductId, false);
+                }
+            }
+
+            for (int i = 0; i < views.Themes.Count; i++)
+            {
+                RefreshThemeCard(views.Themes[i]);
+            }
+
+            ApplyOffer(views.Pack.Action, views.Pack.Id, PlayerProgress.OwnsPack(views.Pack.Id));
             RefreshCoinBalance();
         }
 
-        private void OnDestroy() => Unbind();
+        private void OnDestroy()
+        {
+            EndPreview();
+            Unbind();
+        }
 
-        /// <summary>Drops a pending "Buy?" confirmation once it timed out.</summary>
         private void Update()
         {
-            for (int i = 0; i < themeCards.Count; i++)
+            if (!visible || views == null)
             {
-                ThemeCard themeCard = themeCards[i];
+                return;
+            }
+
+            if (previewing && Time.unscaledTime >= previewUntil)
+            {
+                EndPreview();
+            }
+
+            ApplyResponsiveLayout(force: false);
+
+            for (int i = 0; i < views.Themes.Count; i++)
+            {
+                // Drops a pending "Buy?" confirmation once it timed out.
+                ShopThemeCard themeCard = views.Themes[i];
                 if (themeCard.CoinConfirmUntil > 0f && Time.unscaledTime > themeCard.CoinConfirmUntil)
                 {
                     themeCard.CoinConfirmUntil = 0f;
                     RefreshThemeCard(themeCard);
+                }
+            }
+
+            // The currency icon arrives some time after the price: swap "49 RUB" for "49 [icon]" then.
+            for (int i = 0; i < priceButtons.Count; i++)
+            {
+                ShopPriceButton priceButton = priceButtons[i];
+                if (priceButton.BuyingProductId != null && IconReady(priceButton) != priceButton.IconShown)
+                {
+                    RefreshPurchaseState();
+                    break;
                 }
             }
         }
@@ -212,103 +246,10 @@ namespace BlockPuzzle.UI
 
         private void RefreshCoinBalance()
         {
-            EnsureCoinBalance();
-            if (coinBalance != null)
+            if (views != null && views.CoinBalance != null)
             {
-                coinBalance.text = MetaProgress.Coins.ToString();
+                views.CoinBalance.text = MetaProgress.Coins.ToString();
             }
-        }
-
-        /// <summary>Coins in the top-right corner of the shop card, built on first use.</summary>
-        private void EnsureCoinBalance()
-        {
-            if (coinBalance != null || card == null)
-            {
-                return;
-            }
-
-            coinBalance = card.Find(CoinBalanceName + "/Amount")?.GetComponent<TMP_Text>();
-            if (coinBalance != null)
-            {
-                return;
-            }
-
-            // Corner of the card, clear of the centred title.
-            coinBalance = MetaUi.CreateCoinAmount(CoinBalanceName, card, 36f, MetaUi.CoinGold);
-            UIFactory.Anchor(
-                (RectTransform)coinBalance.transform.parent,
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(-18f, -18f),
-                new Vector2(170f, 50f));
-        }
-
-        /// <summary>
-        /// Gold "[coin] 1500" button above the real-money Buy of a paid palette. Built in
-        /// code so shop prefabs baked before the coins still get it.
-        /// </summary>
-        private static Button EnsureCoinButton(RectTransform themeRoot, out TMP_Text priceLabel)
-        {
-            priceLabel = null;
-            if (themeRoot == null)
-            {
-                return null;
-            }
-
-            Transform existing = themeRoot.Find(CoinBuyButtonName);
-            Button button = existing != null ? existing.GetComponent<Button>() : null;
-            if (button == null)
-            {
-                button = UIFactory.CreateButton(
-                    CoinBuyButtonName, themeRoot, string.Empty, MetaUi.CoinGold, MetaUi.DarkLabel, 30f);
-                UIFactory.SetButtonText(button, string.Empty);
-                TMP_Text amount = MetaUi.CreateCoinAmount("Price", button.transform, 32f, MetaUi.DarkLabel);
-                UIFactory.Stretch((RectTransform)amount.transform.parent);
-            }
-
-            UIFactory.Anchor(
-                (RectTransform)button.transform,
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0f, 114f),
-                new Vector2(200f, 76f));
-
-            Transform label = button.transform.Find("Price/Amount");
-            priceLabel = label != null ? label.GetComponent<TMP_Text>() : null;
-            return button;
-        }
-
-        private void HandleThemeCoinClicked(ThemeCard themeCard)
-        {
-            if (themeCard == null || PlayerProgress.OwnsTheme(themeCard.Id))
-            {
-                return;
-            }
-
-            int price = GameTheme.Get(themeCard.Id).CoinPrice;
-            if (price <= 0 || MetaProgress.Coins < price)
-            {
-                return;
-            }
-
-            // First tap arms, the second one within a few seconds spends the coins.
-            if (themeCard.CoinConfirmUntil <= 0f || Time.unscaledTime > themeCard.CoinConfirmUntil)
-            {
-                themeCard.CoinConfirmUntil = Time.unscaledTime + CoinConfirmSeconds;
-                RefreshThemeCard(themeCard);
-                return;
-            }
-
-            themeCard.CoinConfirmUntil = 0f;
-            if (!MetaProgress.TrySpendCoins(price))
-            {
-                RefreshPurchaseState();
-                return;
-            }
-
-            PlayerProgress.GrantTheme(themeCard.Id);
-            GameTheme.ApplyFromProgress();
-            RefreshPurchaseState();
         }
 
         private void Unbind()
@@ -319,17 +260,10 @@ namespace BlockPuzzle.UI
                 gameManager = null;
             }
 
-            GameTheme.Changed -= HandleThemeChanged;
             GameLocalization.LanguageChanged -= HandleLanguageChanged;
             MetaProgress.Changed -= HandleMetaChanged;
 
             hudShopButton?.onClick.RemoveListener(HandleHudShopClicked);
-            buyButton?.onClick.RemoveListener(HandleBuyClicked);
-            backButton?.onClick.RemoveListener(HandleBackClicked);
-            packPreviewBuy?.onClick.RemoveListener(HandlePackPreviewBuyClicked);
-            packPreviewCancel?.onClick.RemoveListener(HandlePackPreviewCancelClicked);
-            UnbindThemeCards();
-            UnbindPackCard();
         }
 
         private static void Listen(Button button, UnityEngine.Events.UnityAction action)
@@ -373,7 +307,9 @@ namespace BlockPuzzle.UI
             Show();
         }
 
-        private void HandleBuyClicked()
+        // ------------------------------------------------------------------ taps
+
+        private void HandleNoAdsClicked()
         {
             if (PlayerProgress.AdsRemoved || !HasOffer(NoAdsProductId))
             {
@@ -406,20 +342,53 @@ namespace BlockPuzzle.UI
             ThemeBuyRequested?.Invoke(themeId);
         }
 
-        private void HandlePackClicked(string packId)
+        private void HandleThemeCoinClicked(ShopThemeCard themeCard)
         {
-            if (string.IsNullOrEmpty(packId) || PlayerProgress.OwnsPack(packId) || !HasOffer(packId))
+            if (themeCard == null || PlayerProgress.OwnsTheme(themeCard.Id))
             {
                 return;
             }
 
-            ShowPackPreview();
+            int price = GameTheme.Get(themeCard.Id).CoinPrice;
+            if (price <= 0 || MetaProgress.Coins < price)
+            {
+                return;
+            }
+
+            // First tap arms, the second one within a few seconds spends the coins.
+            if (themeCard.CoinConfirmUntil <= 0f || Time.unscaledTime > themeCard.CoinConfirmUntil)
+            {
+                themeCard.CoinConfirmUntil = Time.unscaledTime + CoinConfirmSeconds;
+                RefreshThemeCard(themeCard);
+                return;
+            }
+
+            themeCard.CoinConfirmUntil = 0f;
+            if (!MetaProgress.TrySpendCoins(price))
+            {
+                RefreshPurchaseState();
+                return;
+            }
+
+            PlayerProgress.GrantTheme(themeCard.Id);
+            GameTheme.ApplyFromProgress();
+            RefreshPurchaseState();
         }
 
-        private void HandlePackPreviewBuyClicked()
+        private void HandleCoinAdClicked() => CoinAdRequested?.Invoke();
+
+        private void HandleCoinPackClicked(string productId)
         {
-            string packId = PlayerProgress.ShapesPack1Id;
-            if (PlayerProgress.OwnsPack(packId) || !HasOffer(packId))
+            if (HasOffer(productId))
+            {
+                CoinPackBuyRequested?.Invoke(productId);
+            }
+        }
+
+        private void HandlePackClicked()
+        {
+            string packId = views != null ? views.Pack.Id : PlayerProgress.ShapesPack1Id;
+            if (string.IsNullOrEmpty(packId) || PlayerProgress.OwnsPack(packId) || !HasOffer(packId))
             {
                 return;
             }
@@ -427,65 +396,102 @@ namespace BlockPuzzle.UI
             PackBuyRequested?.Invoke(packId);
         }
 
-        private void HandlePackPreviewCancelClicked() => HidePackPreview();
-
-        private void HandleThemeChanged()
+        /// <summary>
+        /// Tap on a theme sample: shows that palette on the board behind the shop for a few seconds.
+        /// Only while a game is running, because that is the board there is to look at.
+        /// </summary>
+        private void HandlePreviewClicked(string themeId)
         {
-            if (packPreviewVisible)
+            if (views == null || gameManager == null || gameManager.State != GameState.Playing)
             {
-                PaintPackPreviewFigures();
+                return;
             }
+
+            previewing = true;
+            previewUntil = Time.unscaledTime + PreviewSeconds;
+            GameTheme.Preview(themeId);
+            SetPreviewChrome(true);
         }
+
+        private void EndPreview()
+        {
+            if (!previewing)
+            {
+                return;
+            }
+
+            previewing = false;
+            GameTheme.ApplyFromProgress();
+            SetPreviewChrome(false);
+        }
+
+        /// <summary>Hides the shop screen (and its dim) so the board shows through, or brings it back.</summary>
+        private void SetPreviewChrome(bool preview)
+        {
+            if (views == null)
+            {
+                return;
+            }
+
+            views.RootGroup.alpha = preview ? 0f : 1f;
+            views.RootGroup.blocksRaycasts = !preview;
+            if (cardBackground != null)
+            {
+                cardBackground.enabled = !preview;
+            }
+
+            if (dim != null)
+            {
+                dim.enabled = !preview;
+            }
+
+            views.PreviewCatcher.gameObject.SetActive(preview);
+        }
+
+        // ------------------------------------------------------------------ texts
 
         private void HandleLanguageChanged() => RefreshLocalizedTexts();
 
         private void RefreshLocalizedTexts()
         {
             ResolveRefs();
-            if (card != null)
+            if (views == null)
             {
-                UIFactory.SetText(card.Find("Title")?.GetComponent<TMP_Text>(), GameLocalization.ShopTitle);
-                Transform noAds = card.Find("NoAdsCard/Title");
-                UIFactory.SetText(noAds != null ? noAds.GetComponent<TMP_Text>() : null, GameLocalization.NoAds);
-            }
-
-            UIFactory.SetButtonText(backButton, GameLocalization.Back);
-
-            if (packCard != null)
-            {
-                UIFactory.SetText(packCard.Title, GameLocalization.ShapePack);
-            }
-
-            for (int i = 0; i < themeCards.Count; i++)
-            {
-                ThemeCard themeCard = themeCards[i];
-                UIFactory.SetText(themeCard.Title, GameLocalization.ThemeName(themeCard.Id));
-            }
-
-            if (packPreviewCard != null)
-            {
-                UIFactory.SetText(
-                    packPreviewCard.Find("Title")?.GetComponent<TMP_Text>(),
-                    GameLocalization.PackPreviewTitle);
-                UIFactory.SetText(
-                    packPreviewCard.Find("Body")?.GetComponent<TMP_Text>(),
-                    GameLocalization.PackPreviewBody);
-            }
-
-            UIFactory.SetButtonText(packPreviewCancel, GameLocalization.Cancel);
-            RefreshPurchaseState();
-        }
-
-        private void HandleBackClicked()
-        {
-            if (packPreviewVisible)
-            {
-                HidePackPreview();
                 return;
             }
 
-            Hide();
+            UIFactory.SetText(views.Title, GameLocalization.ShopTitle);
+            UIFactory.SetText(views.CoinsHeader, GameLocalization.ShopCoinsTitle);
+            UIFactory.SetText(views.CoinsHint, GameLocalization.ShopCoinsHint);
+            UIFactory.SetText(views.CoinAd.Caption, GameLocalization.ShopCoinAdCaption);
+            for (int i = 0; i < views.CoinPacks.Count; i++)
+            {
+                ShopCoinOfferCard pack = views.CoinPacks[i];
+                UIFactory.SetText(pack.Caption, GameLocalization.ShopCoinPackCaption(pack.ProductId));
+            }
+
+            UIFactory.SetText(views.ThemesHeader, GameLocalization.ShopThemesTitle);
+            UIFactory.SetText(views.ThemesHint, GameLocalization.ShopThemesHint);
+            UIFactory.SetText(views.PackHeader, GameLocalization.ShopPackTitle);
+            UIFactory.SetText(views.NoAdsHeader, GameLocalization.ShopNoAdsTitle);
+            UIFactory.SetText(views.NoAdsHint, GameLocalization.ShopNoAdsHint);
+            UIFactory.SetText(views.NoAds.Title, GameLocalization.NoAds);
+            UIFactory.SetText(views.NoAds.Caption, GameLocalization.ShopNoAdsCaption);
+            UIFactory.SetText(views.Pack.Hint, GameLocalization.ShopPackHint);
+            UIFactory.SetText(views.PreviewHint, GameLocalization.ThemePreviewHint);
+
+            for (int i = 0; i < views.Themes.Count; i++)
+            {
+                ShopThemeCard themeCard = views.Themes[i];
+                UIFactory.SetText(themeCard.Title, GameLocalization.ThemeName(themeCard.Id));
+                UIFactory.SetText(themeCard.Caption, GameLocalization.ThemeTagline(themeCard.Id));
+                UIFactory.SetText(themeCard.TryOn, GameLocalization.ShopTryOn);
+            }
+
+            RefreshPurchaseState();
         }
+
+        // ------------------------------------------------------------------ show / hide
 
         private void HandleStateChanged(GameState state)
         {
@@ -503,9 +509,18 @@ namespace BlockPuzzle.UI
         private void Show()
         {
             ResolveRefs();
-            HidePackPreview(instant: true);
+            EndPreview();
+            ApplyResponsiveLayout(force: true);
             RefreshPurchaseState();
+            WarnMissingOffers();
             visible = true;
+            MusicManager.SetShopOpen(true);
+
+            if (views != null)
+            {
+                views.Scroll.StopMovement();
+                views.Scroll.verticalNormalizedPosition = 1f;
+            }
 
             if (canvasGroup == null)
             {
@@ -516,13 +531,14 @@ namespace BlockPuzzle.UI
             GameTween.Kill(canvasGroup);
             canvasGroup.blocksRaycasts = true;
             canvasGroup.interactable = true;
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(canvasGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
 
-            if (card != null)
+            if (views != null)
             {
-                GameTween.Kill(card);
-                card.localScale = Vector3.one * 0.85f;
-                GameTween.Scale(card, Vector3.one, ShowDuration, TweenEase.OutBack, unscaled: true);
+                GameTween.Kill(views.Root);
+                views.Root.localScale = Vector3.one * ShowScale;
+                GameTween.Scale(views.Root, Vector3.one, ShowDuration, TweenEase.OutQuad, unscaled: true);
             }
         }
 
@@ -535,13 +551,14 @@ namespace BlockPuzzle.UI
             }
 
             ResolveRefs();
-            HidePackPreview(instant: true);
+            EndPreview();
             if (!visible && (canvasGroup == null || canvasGroup.alpha <= 0f))
             {
                 return;
             }
 
             visible = false;
+            MusicManager.SetShopOpen(false);
 
             if (canvasGroup == null)
             {
@@ -558,12 +575,13 @@ namespace BlockPuzzle.UI
             }
 
             GameTween.Kill(canvasGroup);
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(canvasGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
 
-            if (card != null)
+            if (views != null)
             {
-                GameTween.Kill(card);
-                GameTween.Scale(card, Vector3.one * 0.85f, HideDuration, TweenEase.InQuad, unscaled: true);
+                GameTween.Kill(views.Root);
+                GameTween.Scale(views.Root, Vector3.one * ShowScale, HideDuration, TweenEase.InQuad, unscaled: true);
             }
         }
 
@@ -579,12 +597,12 @@ namespace BlockPuzzle.UI
 
             if (!isVisible)
             {
-                HidePackPreview(instant: true);
+                EndPreview();
             }
 
-            if (card != null)
+            if (views != null)
             {
-                card.localScale = isVisible ? Vector3.one : Vector3.one * 0.85f;
+                views.Root.localScale = isVisible ? Vector3.one : Vector3.one * ShowScale;
             }
 
             if (canvasGroup == null)
@@ -598,6 +616,8 @@ namespace BlockPuzzle.UI
             canvasGroup.interactable = isVisible;
         }
 
+        // ------------------------------------------------------------------ layout
+
         private void ResolveRefs()
         {
             if (canvasGroup == null)
@@ -610,277 +630,135 @@ namespace BlockPuzzle.UI
                 card = transform.Find("Card") as RectTransform;
             }
 
-            if (priceLabel == null && card != null)
-            {
-                priceLabel = card.Find("NoAdsCard/Price")?.GetComponent<TMP_Text>();
-            }
-
-            if (buyButton == null && card != null)
-            {
-                buyButton = card.Find("NoAdsCard/BuyButton")?.GetComponent<Button>();
-            }
-
-            if (backButton == null && card != null)
-            {
-                backButton = card.Find("BackButton")?.GetComponent<Button>();
-            }
-
             if (hudShopButton == null)
             {
                 Transform top = GameObject.Find("TopPanel")?.transform;
                 hudShopButton = top != null ? top.Find("ShopButton")?.GetComponent<Button>() : null;
             }
 
-            if (buyLabel == null && buyButton != null)
-            {
-                buyLabel = buyButton.GetComponentInChildren<TMP_Text>(true);
-            }
-
-            EnsurePackPreview();
-            EnsureCoinBalance();
-            HideLegacyPrice(priceLabel);
+            EnsureLayout();
         }
 
-        private void CollectThemeCards()
+        /// <summary>
+        /// Builds the screen inside the card on first use. Whatever an older baked prefab or scene put there
+        /// (fixed cards, the pack popup) is dropped, so every build ends up with the same layout.
+        /// </summary>
+        private void EnsureLayout()
         {
-            themeCards.Clear();
-            if (!AddThemeCard(ThemeConfig.DefaultId, "ThemeClassicCard"))
+            if (views != null || card == null || !Application.isPlaying)
             {
-                AddThemeCard(ThemeConfig.DefaultId, "ThemeDefaultCard");
+                return;
             }
 
-            AddThemeCard(ThemeConfig.OceanId, "ThemeOceanCard");
-            AddThemeCard(ThemeConfig.CandyId, "ThemeCandyCard");
+            Transform legacyPreview = transform.Find(LegacyPackPreviewName);
+            if (legacyPreview != null)
+            {
+                legacyPreview.SetParent(null, false);
+                Destroy(legacyPreview.gameObject);
+            }
+
+            for (int i = card.childCount - 1; i >= 0; i--)
+            {
+                // Detach first: Destroy is deferred and the names would still be found.
+                Transform child = card.GetChild(i);
+                child.SetParent(null, false);
+                Destroy(child.gameObject);
+            }
+
+            UIFactory.Stretch(card);
+            card.localScale = Vector3.one;
+            cardBackground = card.GetComponent<Image>();
+            if (cardBackground != null)
+            {
+                cardBackground.sprite = null;
+                cardBackground.type = Image.Type.Simple;
+                cardBackground.color = GameTheme.CardBackground;
+                cardBackground.raycastTarget = true;
+            }
+
+            dim = transform.Find("Dim")?.GetComponent<Image>();
+            views = ShopLayout.Build(card);
+            WireViews();
         }
 
-        private bool AddThemeCard(string themeId, string objectName)
+        private void WireViews()
         {
-            if (card == null)
+            views.Close.onClick.AddListener(Hide);
+            views.PreviewCatcher.onClick.AddListener(EndPreview);
+            views.NoAds.Action.Button.onClick.AddListener(HandleNoAdsClicked);
+            views.Pack.Action.Button.onClick.AddListener(HandlePackClicked);
+
+            views.CoinAd.Action.Button.onClick.AddListener(HandleCoinAdClicked);
+
+            priceButtons.Clear();
+            priceButtons.Add(views.NoAds.Action);
+            priceButtons.Add(views.Pack.Action);
+
+            for (int i = 0; i < views.CoinPacks.Count; i++)
             {
-                return false;
+                string id = views.CoinPacks[i].ProductId;
+                priceButtons.Add(views.CoinPacks[i].Action);
+                views.CoinPacks[i].Action.Button.onClick.AddListener(() => HandleCoinPackClicked(id));
             }
 
-            Transform root = card.Find(objectName);
-            if (root == null)
+            for (int i = 0; i < views.Themes.Count; i++)
             {
-                return false;
-            }
-
-            Button action = root.Find("BuyButton")?.GetComponent<Button>();
-            TMP_Text leftoverPrice = root.Find("Price")?.GetComponent<TMP_Text>();
-            HideLegacyPrice(leftoverPrice);
-
-            TMP_Text coinLabel = null;
-            Button coinButton = GameTheme.Get(themeId).CoinPrice > 0
-                ? EnsureCoinButton(root as RectTransform, out coinLabel)
-                : null;
-
-            themeCards.Add(new ThemeCard
-            {
-                Id = themeId,
-                Root = root as RectTransform,
-                Title = root.Find("Title")?.GetComponent<TMP_Text>(),
-                ActionButton = action,
-                ActionLabel = action != null ? action.GetComponentInChildren<TMP_Text>(true) : null,
-                CoinButton = coinButton,
-                CoinLabel = coinLabel
-            });
-            return true;
-        }
-
-        private void BindThemeCards()
-        {
-            UnbindThemeCards();
-            CollectThemeCards();
-            for (int i = 0; i < themeCards.Count; i++)
-            {
-                ThemeCard themeCard = themeCards[i];
-                if (themeCard.CoinButton != null)
-                {
-                    themeCard.CoinClickHandler = () => HandleThemeCoinClicked(themeCard);
-                    themeCard.CoinButton.onClick.AddListener(themeCard.CoinClickHandler);
-                }
-
-                if (themeCard.ActionButton == null)
-                {
-                    continue;
-                }
-
+                ShopThemeCard themeCard = views.Themes[i];
                 string id = themeCard.Id;
-                themeCard.ClickHandler = () => HandleThemeClicked(id);
-                themeCard.ActionButton.onClick.AddListener(themeCard.ClickHandler);
-            }
-        }
-
-        private void UnbindThemeCards()
-        {
-            for (int i = 0; i < themeCards.Count; i++)
-            {
-                ThemeCard themeCard = themeCards[i];
-                if (themeCard.ActionButton != null && themeCard.ClickHandler != null)
+                priceButtons.Add(themeCard.Action);
+                themeCard.Action.Button.onClick.AddListener(() => HandleThemeClicked(id));
+                themeCard.Preview.onClick.AddListener(() => HandlePreviewClicked(id));
+                if (themeCard.Coin != null)
                 {
-                    themeCard.ActionButton.onClick.RemoveListener(themeCard.ClickHandler);
-                }
-
-                if (themeCard.CoinButton != null && themeCard.CoinClickHandler != null)
-                {
-                    themeCard.CoinButton.onClick.RemoveListener(themeCard.CoinClickHandler);
+                    themeCard.Coin.Button.onClick.AddListener(() => HandleThemeCoinClicked(themeCard));
                 }
             }
-
-            themeCards.Clear();
         }
 
-        private void RefreshThemeCard(ThemeCard themeCard)
+        /// <summary>One column on a phone in portrait, two on a landscape screen; the list stays centred.</summary>
+        private void ApplyResponsiveLayout(bool force)
         {
-            if (themeCard == null)
+            if (views == null)
             {
                 return;
             }
 
-            bool owned = PlayerProgress.OwnsTheme(themeCard.Id);
-            bool selected = owned && PlayerProgress.ThemeId == themeCard.Id;
-            bool sellable = !owned && HasOffer(themeCard.Id);
-
-            string caption;
-            if (!owned)
+            float width = views.Viewport.rect.width;
+            if (width <= 1f && card != null)
             {
-                caption = sellable ? PriceText(themeCard.Id) : string.Empty;
-            }
-            else
-            {
-                caption = selected ? GameLocalization.Selected : GameLocalization.Select;
+                width = card.rect.width;
             }
 
-            ApplyActionButton(
-                themeCard.ActionButton,
-                themeCard.ActionLabel,
-                !owned,
-                owned ? !selected : sellable,
-                caption,
-                showCurrencyIcon: sellable);
+            if (width <= 1f || (!force && Mathf.Abs(width - layoutWidth) < 1f))
+            {
+                return;
+            }
 
-            RefreshCoinButton(themeCard, owned);
+            layoutWidth = width;
+            int columns = width >= TwoColumnMinWidth ? 2 : 1;
+            float maxWidth = columns == 2 ? LandscapeMaxWidth : PortraitMaxWidth;
+            float contentWidth = Mathf.Min(width - ShopLayout.SidePadding * 2f, maxWidth);
+            int side = Mathf.RoundToInt(Mathf.Max(ShopLayout.SidePadding, (width - contentWidth) * 0.5f));
+            float cellWidth = Mathf.Floor((contentWidth - (columns - 1) * ShopLayout.CardGap) / columns);
+
+            // Room under the list for the sticky banner that sits over the bottom of the canvas.
+            int bottom = 36 + Mathf.RoundToInt(GameTheme.ActiveBannerReserve);
+            views.ContentLayout.padding = new RectOffset(side, side, 36, bottom);
+
+            SetGrid(views.CoinsGrid, columns, cellWidth, ShopLayout.CoinCardHeight);
+            SetGrid(views.ThemesGrid, columns, cellWidth, ShopLayout.ThemeCardHeight);
+            SetGrid(views.PackGrid, columns, cellWidth, ShopLayout.PackCardHeight);
+            SetGrid(views.NoAdsGrid, columns, cellWidth, ShopLayout.NoAdsCardHeight);
+            LayoutRebuilder.MarkLayoutForRebuild(views.Content);
         }
 
-        /// <summary>Coin offer next to the paid one: hidden once owned, dimmed while the player is short.</summary>
-        private static void RefreshCoinButton(ThemeCard themeCard, bool owned)
+        private static void SetGrid(GridLayoutGroup grid, int columns, float cellWidth, float cellHeight)
         {
-            if (themeCard.CoinButton == null)
-            {
-                return;
-            }
-
-            int price = GameTheme.Get(themeCard.Id).CoinPrice;
-            bool offered = !owned && price > 0;
-            themeCard.CoinButton.gameObject.SetActive(offered);
-            if (!offered)
-            {
-                themeCard.CoinConfirmUntil = 0f;
-                return;
-            }
-
-            bool affordable = MetaProgress.Coins >= price;
-            bool confirming = affordable && themeCard.CoinConfirmUntil > 0f;
-            themeCard.CoinButton.interactable = affordable;
-
-            ColorBlock colors = themeCard.CoinButton.colors;
-            colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
-            themeCard.CoinButton.colors = colors;
-
-            if (themeCard.CoinLabel != null)
-            {
-                themeCard.CoinLabel.text = confirming ? GameLocalization.BuyForCoinsConfirm : price.ToString();
-            }
-
-            Transform coin = themeCard.CoinLabel != null ? themeCard.CoinLabel.transform.parent.Find("Coin") : null;
-            if (coin != null)
-            {
-                coin.gameObject.SetActive(!confirming);
-            }
-
-            Image background = themeCard.CoinButton.targetGraphic as Image;
-            if (background != null)
-            {
-                background.color = confirming ? GameTheme.ShopBuy : MetaUi.CoinGold;
-            }
+            grid.constraintCount = columns;
+            grid.cellSize = new Vector2(cellWidth, cellHeight);
         }
 
-        private void CollectPackCard()
-        {
-            packCard = null;
-            if (card == null)
-            {
-                return;
-            }
-
-            Transform root = card.Find("ShapesPack1Card");
-            if (root == null)
-            {
-                return;
-            }
-
-            Button action = root.Find("BuyButton")?.GetComponent<Button>();
-            HideLegacyPrice(root.Find("Price")?.GetComponent<TMP_Text>());
-            packCard = new ThemeCard
-            {
-                Id = PlayerProgress.ShapesPack1Id,
-                Root = root as RectTransform,
-                Title = root.Find("Title")?.GetComponent<TMP_Text>(),
-                ActionButton = action,
-                ActionLabel = action != null ? action.GetComponentInChildren<TMP_Text>(true) : null
-            };
-        }
-
-        private void BindPackCard()
-        {
-            UnbindPackCard();
-            CollectPackCard();
-            if (packCard == null || packCard.ActionButton == null)
-            {
-                return;
-            }
-
-            string id = packCard.Id;
-            packCard.ClickHandler = () => HandlePackClicked(id);
-            packCard.ActionButton.onClick.AddListener(packCard.ClickHandler);
-        }
-
-        private void UnbindPackCard()
-        {
-            if (packCard != null && packCard.ActionButton != null && packCard.ClickHandler != null)
-            {
-                packCard.ActionButton.onClick.RemoveListener(packCard.ClickHandler);
-            }
-
-            packCard = null;
-        }
-
-        private void RefreshPackCard()
-        {
-            if (packCard == null)
-            {
-                return;
-            }
-
-            bool owned = PlayerProgress.OwnsPack(packCard.Id);
-            bool sellable = !owned && HasOffer(packCard.Id);
-
-            // A pack that the catalog does not list is not on sale at all: hide the card
-            // instead of showing an offer the player cannot complete (Yandex 1.13.4).
-            if (packCard.Root != null)
-            {
-                packCard.Root.gameObject.SetActive(owned || sellable);
-            }
-
-            ApplyActionButton(
-                packCard.ActionButton,
-                packCard.ActionLabel,
-                !owned,
-                sellable,
-                owned ? GameLocalization.Purchased : (sellable ? GameLocalization.Buy : string.Empty),
-                showCurrencyIcon: false);
-        }
+        // ------------------------------------------------------------------ offers
 
         /// <summary>True once the payments catalog returned a price for the product.</summary>
         private bool HasOffer(string productId)
@@ -890,505 +768,225 @@ namespace BlockPuzzle.UI
                 && !string.IsNullOrEmpty(price);
         }
 
-        private string PriceText(string productId)
+        private ShopPriceButton PriceButtonFor(string productId)
         {
-            return catalogPrices.TryGetValue(productId, out string price) ? price : null;
-        }
-
-        /// <summary>
-        /// Green CTA. Catalog-priced buttons also get the currency icon; the pack card
-        /// stays a plain Buy caption because the price lives on the preview plaque.
-        /// Owned / select states stay muted and never show a price.
-        /// </summary>
-        private void ApplyActionButton(
-            Button button,
-            TMP_Text label,
-            bool buyCta,
-            bool interactable,
-            string caption,
-            bool showCurrencyIcon)
-        {
-            if (label != null)
-            {
-                label.text = caption ?? string.Empty;
-                label.color = buyCta ? GameTheme.ShopBuyLabel : GameTheme.TextPrimary;
-                label.overflowMode = TextOverflowModes.Overflow;
-            }
-
-            if (button != null)
-            {
-                Image background = button.targetGraphic as Image;
-                if (background == null)
-                {
-                    background = button.GetComponent<Image>();
-                }
-
-                if (background != null)
-                {
-                    background.color = buyCta ? GameTheme.ShopBuy : GameTheme.ButtonSecondary;
-                }
-
-                ColorBlock colors = button.colors;
-                colors.disabledColor = buyCta
-                    ? new Color(1f, 1f, 1f, 0.65f)
-                    : new Color(1f, 1f, 1f, 0.55f);
-                button.colors = colors;
-                button.interactable = interactable;
-            }
-
-            Image icon = showCurrencyIcon ? EnsureCurrencyIcon(label) : ExistingCurrencyIcon(label);
-            if (icon != null)
-            {
-                icon.gameObject.SetActive(showCurrencyIcon && !string.IsNullOrEmpty(caption));
-            }
-
-            if (showCurrencyIcon && !string.IsNullOrEmpty(caption))
-            {
-                LayoutCurrencyIcon(label);
-            }
-        }
-
-        private static Image ExistingCurrencyIcon(TMP_Text label)
-        {
-            if (label == null)
-            {
-                return null;
-            }
-
-            Transform existing = label.transform.Find(CurrencyIconName);
-            return existing != null ? existing.GetComponent<Image>() : null;
-        }
-
-        private static void HideLegacyPrice(TMP_Text label)
-        {
-            if (label != null)
-            {
-                label.gameObject.SetActive(false);
-            }
-        }
-
-        private TMP_Text ActionLabelFor(string productId)
-        {
-            if (string.IsNullOrEmpty(productId))
+            if (views == null || string.IsNullOrEmpty(productId))
             {
                 return null;
             }
 
             if (productId == NoAdsProductId)
             {
-                return buyLabel;
+                return views.NoAds.Action;
             }
 
-            for (int i = 0; i < themeCards.Count; i++)
+            if (productId == views.Pack.Id)
             {
-                if (themeCards[i].Id == productId)
+                return views.Pack.Action;
+            }
+
+            for (int i = 0; i < views.CoinPacks.Count; i++)
+            {
+                if (views.CoinPacks[i].ProductId == productId)
                 {
-                    return themeCards[i].ActionLabel;
+                    return views.CoinPacks[i].Action;
                 }
             }
 
-            if (productId == PlayerProgress.ShapesPack1Id)
+            for (int i = 0; i < views.Themes.Count; i++)
             {
-                return packPreviewBuyLabel != null
-                    ? packPreviewBuyLabel
-                    : packCard != null ? packCard.ActionLabel : null;
+                if (views.Themes[i].Id == productId)
+                {
+                    return views.Themes[i].Action;
+                }
             }
 
             return null;
         }
 
-        private static Image EnsureCurrencyIcon(TMP_Text label)
+        /// <summary>
+        /// A paid product not in the catalog is most likely not created in the Yandex Games console:
+        /// say so once per product instead of failing quietly.
+        /// </summary>
+        private void WarnMissingOffers()
         {
-            if (label == null)
+            WarnIfMissing(NoAdsProductId, PlayerProgress.AdsRemoved);
+            WarnIfMissing(PlayerProgress.ShapesPack1Id, PlayerProgress.OwnsPack(PlayerProgress.ShapesPack1Id));
+            for (int i = 0; i < CoinPackCatalog.ProductIds.Length; i++)
             {
-                return null;
+                WarnIfMissing(CoinPackCatalog.ProductIds[i], false);
             }
-
-            Transform existing = label.transform.Find(CurrencyIconName);
-            if (existing != null)
-            {
-                return existing.GetComponent<Image>();
-            }
-
-            Image icon = UIFactory.CreateImage(CurrencyIconName, label.transform, Color.white, rounded: false);
-            icon.raycastTarget = false;
-            icon.preserveAspect = true;
-            // Stays off until the platform layer has the texture from currencyImageURL.
-            icon.enabled = false;
-            LayoutCurrencyIcon(label);
-            return icon;
         }
 
-        /// <summary>Keeps the currency icon glued to the right edge of the price text.</summary>
-        private static void LayoutCurrencyIcon(TMP_Text label)
+        private void WarnIfMissing(string productId, bool owned)
         {
-            if (label == null)
+            if (owned || HasOffer(productId) || !warnedMissing.Add(productId))
             {
                 return;
             }
 
-            RectTransform icon = label.transform.Find(CurrencyIconName) as RectTransform;
-            if (icon == null)
-            {
-                return;
-            }
-
-            label.ForceMeshUpdate();
-            float size = Mathf.Max(18f, label.fontSize);
-            float textWidth = label.GetPreferredValues(label.text).x;
-            UIFactory.Anchor(
-                icon,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0f, 0.5f),
-                new Vector2(textWidth * 0.5f + CurrencyIconGap, 0f),
-                new Vector2(size, size));
+            Debug.LogWarning(
+                $"[Block Puzzle] Shop: product '{productId}' is not in the payments catalog, so its button shows " +
+                "\"Unavailable\". Check that this id exists in the Yandex Games console (In-game purchases).");
         }
 
-        private void RefreshPackPreview()
+        /// <summary>Real-money product: owned, on sale (catalog price) or unavailable.</summary>
+        private void ApplyOffer(ShopPriceButton button, string productId, bool owned)
         {
-            EnsurePackPreview();
-            if (packPreviewBuy == null)
-            {
-                return;
-            }
-
-            string packId = PlayerProgress.ShapesPack1Id;
-            bool owned = PlayerProgress.OwnsPack(packId);
-            bool sellable = !owned && HasOffer(packId);
-            ApplyActionButton(
-                packPreviewBuy,
-                packPreviewBuyLabel,
-                true,
-                sellable,
-                sellable ? PriceText(packId) : string.Empty,
-                showCurrencyIcon: sellable);
-
             if (owned)
             {
-                HidePackPreview(instant: true);
+                Paint(button, GameLocalization.Purchased, ButtonKind.Done, showIcon: false, tick: true);
+                return;
             }
+
+            if (!HasOffer(productId))
+            {
+                Paint(button, GameLocalization.Unavailable, ButtonKind.Off, showIcon: false, tick: false);
+                return;
+            }
+
+            // Amount and icon, never "49 RUB" plus an icon. Without the icon the catalog string keeps its currency.
+            // The static Montserrat atlas has no narrow no-break space (U+202F), which prices can carry as the thousands separator.
+            string full = catalogPrices[productId].Replace('\u202F', '\u00A0');
+            bool iconReady = IconReady(button);
+            Paint(button, iconReady ? ExtractAmount(full) : full, ButtonKind.Buy, showIcon: iconReady, tick: false);
+            button.BuyingProductId = productId;
         }
 
-        private void ShowPackPreview()
+        private static bool IconReady(ShopPriceButton button)
         {
-            ResolveRefs();
-            RefreshPackPreview();
-            PaintPackPreviewFigures();
-            packPreviewVisible = true;
-
-            if (packPreviewGroup == null)
-            {
-                return;
-            }
-
-            packPreviewGroup.transform.SetAsLastSibling();
-            GameTween.Kill(packPreviewGroup);
-            packPreviewGroup.blocksRaycasts = true;
-            packPreviewGroup.interactable = true;
-            GameTween.Fade(packPreviewGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
-
-            if (packPreviewCard != null)
-            {
-                GameTween.Kill(packPreviewCard);
-                packPreviewCard.localScale = Vector3.one * 0.85f;
-                GameTween.Scale(packPreviewCard, Vector3.one, ShowDuration, TweenEase.OutBack, unscaled: true);
-            }
+            return button.CurrencyIcon != null && button.CurrencyIcon.sprite != null && button.CurrencyIcon.enabled;
         }
 
-        private void HidePackPreview() => HidePackPreview(instant: false);
-
-        private void HidePackPreview(bool instant)
+        /// <summary>The numeric part of a catalog price: "1 490 RUB" becomes "1 490".</summary>
+        private static string ExtractAmount(string price)
         {
-            if (packPreviewGroup == null)
+            int start = -1;
+            for (int i = 0; i < price.Length; i++)
             {
-                packPreviewVisible = false;
-                return;
-            }
-
-            if (!packPreviewVisible && packPreviewGroup.alpha <= 0f)
-            {
-                SetPackPreviewVisible(false);
-                return;
-            }
-
-            packPreviewVisible = false;
-            packPreviewGroup.blocksRaycasts = false;
-            packPreviewGroup.interactable = false;
-
-            if (instant || packPreviewGroup.alpha <= 0f)
-            {
-                SetPackPreviewVisible(false);
-                return;
-            }
-
-            GameTween.Kill(packPreviewGroup);
-            GameTween.Fade(packPreviewGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
-
-            if (packPreviewCard != null)
-            {
-                GameTween.Kill(packPreviewCard);
-                GameTween.Scale(packPreviewCard, Vector3.one * 0.85f, HideDuration, TweenEase.InQuad, unscaled: true);
-            }
-        }
-
-        private void SetPackPreviewVisible(bool isVisible)
-        {
-            packPreviewVisible = isVisible;
-            if (packPreviewCard != null)
-            {
-                packPreviewCard.localScale = isVisible ? Vector3.one : Vector3.one * 0.85f;
-            }
-
-            if (packPreviewGroup == null)
-            {
-                return;
-            }
-
-            GameTween.Kill(packPreviewGroup);
-            if (packPreviewCard != null)
-            {
-                GameTween.Kill(packPreviewCard);
-            }
-
-            packPreviewGroup.alpha = isVisible ? 1f : 0f;
-            packPreviewGroup.blocksRaycasts = isVisible;
-            packPreviewGroup.interactable = isVisible;
-        }
-
-        private void EnsurePackPreview()
-        {
-            if (packPreviewBuy != null && packPreviewGroup != null && packPreviewFigures != null)
-            {
-                return;
-            }
-
-            Transform root = transform.Find(PackPreviewName);
-            if (root != null)
-            {
-                BindPackPreviewRefs(root);
-            }
-
-            if (packPreviewBuy == null || packPreviewGroup == null || packPreviewFigures == null)
-            {
-                if (root != null)
+                if (char.IsDigit(price[i]))
                 {
-                    DestroyImmediate(root.gameObject);
+                    start = i;
+                    break;
                 }
-
-                root = BuildPackPreview();
-                BindPackPreviewRefs(root);
             }
 
-            if (!packPreviewVisible)
+            if (start < 0)
             {
-                SetPackPreviewVisible(false);
+                return price;
             }
 
-            Listen(packPreviewBuy, HandlePackPreviewBuyClicked);
-            Listen(packPreviewCancel, HandlePackPreviewCancelClicked);
+            int end = start;
+            for (int i = start; i < price.Length; i++)
+            {
+                char c = price[i];
+                if (char.IsDigit(c) || c == '.' || c == ',')
+                {
+                    end = i + 1;
+                }
+                else if ((c == ' ' || c == ' ' || c == ' ') && i + 1 < price.Length && char.IsDigit(price[i + 1]))
+                {
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return price.Substring(start, end - start);
         }
 
-        private void BindPackPreviewRefs(Transform root)
+        private static void Paint(ShopPriceButton button, string caption, ButtonKind kind, bool showIcon, bool tick)
         {
-            if (root == null)
+            bool buy = kind == ButtonKind.Buy;
+            button.BuyingProductId = null;
+            button.Label.text = caption ?? string.Empty;
+            button.Label.color = buy
+                ? GameTheme.ShopBuyLabel
+                : (kind == ButtonKind.Off ? GameTheme.TextSecondary : GameTheme.TextPrimary);
+
+            if (button.Background != null)
+            {
+                button.Background.color = buy ? GameTheme.ShopBuy : GameTheme.ButtonSecondary;
+            }
+
+            // The muted look is painted above, so the disabled state must not tint it a second time.
+            ColorBlock colors = button.Button.colors;
+            colors.disabledColor = Color.white;
+            button.Button.colors = colors;
+            button.Button.interactable = kind == ButtonKind.Buy || kind == ButtonKind.Choose;
+
+            button.Tick.gameObject.SetActive(tick);
+            button.CurrencyIcon.gameObject.SetActive(showIcon);
+            button.IconShown = showIcon;
+        }
+
+        private void RefreshThemeCard(ShopThemeCard themeCard)
+        {
+            if (themeCard == null)
             {
                 return;
             }
 
-            packPreviewGroup = root.GetComponent<CanvasGroup>();
-            packPreviewCard = root.Find("Card") as RectTransform;
-            packPreviewFigures = packPreviewCard != null
-                ? packPreviewCard.Find("Figures") as RectTransform
-                : null;
-            packPreviewBuy = packPreviewCard != null
-                ? packPreviewCard.Find("BuyButton")?.GetComponent<Button>()
-                : null;
-            packPreviewCancel = packPreviewCard != null
-                ? packPreviewCard.Find("CancelButton")?.GetComponent<Button>()
-                : null;
-            packPreviewBuyLabel = packPreviewBuy != null
-                ? packPreviewBuy.GetComponentInChildren<TMP_Text>(true)
-                : null;
+            bool owned = PlayerProgress.OwnsTheme(themeCard.Id);
+            bool selected = owned && PlayerProgress.ThemeId == themeCard.Id;
+
+            // A theme sold for coins is never sold for money too: until it is owned only the coin
+            // button shows, in the same place where Select appears afterwards.
+            bool coinOnly = !owned && GameTheme.Get(themeCard.Id).CoinPrice > 0;
+            themeCard.Action.Button.gameObject.SetActive(!coinOnly);
+
+            if (coinOnly)
+            {
+                themeCard.Action.BuyingProductId = null;
+            }
+            else if (!owned)
+            {
+                ApplyOffer(themeCard.Action, themeCard.Id, false);
+            }
+            else if (selected)
+            {
+                Paint(themeCard.Action, GameLocalization.Selected, ButtonKind.Done, showIcon: false, tick: true);
+            }
+            else
+            {
+                Paint(themeCard.Action, GameLocalization.Select, ButtonKind.Choose, showIcon: false, tick: false);
+            }
+
+            themeCard.Frame.color = selected ? ShopLayout.SelectedFrame : ShopLayout.ThemeFrame(themeCard.Id);
+            RefreshCoinButton(themeCard, owned);
         }
 
-        private Transform BuildPackPreview()
+        /// <summary>Coin offer under the paid one: hidden once owned, dimmed while the player is short.</summary>
+        private static void RefreshCoinButton(ShopThemeCard themeCard, bool owned)
         {
-            RectTransform root = UIFactory.CreateRect(PackPreviewName, transform);
-            UIFactory.Stretch(root);
-            root.SetAsLastSibling();
-
-            CanvasGroup group = root.gameObject.AddComponent<CanvasGroup>();
-            group.alpha = 0f;
-            group.blocksRaycasts = false;
-            group.interactable = false;
-
-            Image dim = UIFactory.CreateImage("Dim", root, new Color(0.03f, 0.03f, 0.08f, 0.72f), rounded: false);
-            UIFactory.Stretch(dim.rectTransform);
-
-            Image cardImage = UIFactory.CreateImage("Card", root, GameTheme.CardBackground);
-            RectTransform previewCard = cardImage.rectTransform;
-            UIFactory.Anchor(
-                previewCard,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
-                Vector2.zero,
-                new Vector2(720f, 920f));
-
-            TMP_Text title = UIFactory.CreateText(
-                "Title",
-                previewCard,
-                GameLocalization.PackPreviewTitle,
-                48f,
-                GameTheme.TextPrimary,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold);
-            UIFactory.Anchor(
-                title.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -40f),
-                new Vector2(640f, 80f));
-
-            TMP_Text body = UIFactory.CreateText(
-                "Body",
-                previewCard,
-                GameLocalization.PackPreviewBody,
-                32f,
-                GameTheme.TextSecondary,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal);
-            body.enableWordWrapping = true;
-            UIFactory.Anchor(
-                body.rectTransform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -128f),
-                new Vector2(640f, 80f));
-
-            RectTransform figures = UIFactory.CreateRect("Figures", previewCard);
-            UIFactory.Anchor(
-                figures,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -330f),
-                new Vector2(640f, 240f));
-
-            Button buy = UIFactory.CreateButton(
-                "BuyButton",
-                previewCard,
-                string.Empty,
-                GameTheme.ShopBuy,
-                GameTheme.ShopBuyLabel,
-                48f);
-            UIFactory.Anchor(
-                (RectTransform)buy.transform,
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0f, 190f),
-                new Vector2(600f, 120f));
-
-            Button cancel = UIFactory.CreateButton(
-                "CancelButton",
-                previewCard,
-                GameLocalization.Cancel,
-                GameTheme.ButtonSecondary,
-                GameTheme.TextPrimary,
-                38f);
-            UIFactory.Anchor(
-                (RectTransform)cancel.transform,
-                new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f),
-                new Vector2(0f, 44f),
-                new Vector2(600f, 110f));
-
-            return root;
-        }
-
-        private void PaintPackPreviewFigures()
-        {
-            if (packPreviewFigures == null)
+            ShopCoinButton coin = themeCard.Coin;
+            if (coin == null)
             {
                 return;
             }
 
-            for (int i = packPreviewFigures.childCount - 1; i >= 0; i--)
+            int price = GameTheme.Get(themeCard.Id).CoinPrice;
+            bool offered = !owned && price > 0;
+            coin.Button.gameObject.SetActive(offered);
+            if (!offered)
             {
-                Destroy(packPreviewFigures.GetChild(i).gameObject);
-            }
-
-            IReadOnlyList<BlockShape> shapes = PackPreviewShapes();
-            int count = shapes.Count;
-            if (count <= 0)
-            {
+                themeCard.CoinConfirmUntil = 0f;
                 return;
             }
 
-            float slotWidth = 148f;
-            float slotHeight = 210f;
-            float gap = 12f;
-            float total = count * slotWidth + (count - 1) * gap;
-            float startX = -total * 0.5f + slotWidth * 0.5f;
+            bool affordable = MetaProgress.Coins >= price;
+            bool confirming = affordable && themeCard.CoinConfirmUntil > 0f;
+            coin.Button.interactable = affordable;
 
-            for (int i = 0; i < count; i++)
-            {
-                Image slot = UIFactory.CreateImage($"Figure_{i}", packPreviewFigures, GameTheme.EmptyCell);
-                slot.raycastTarget = false;
-                UIFactory.Anchor(
-                    slot.rectTransform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(startX + i * (slotWidth + gap), 0f),
-                    new Vector2(slotWidth, slotHeight));
-                PaintShapePreview(slot.rectTransform, shapes[i]);
-            }
-        }
+            ColorBlock colors = coin.Button.colors;
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
+            coin.Button.colors = colors;
 
-        private static void PaintShapePreview(RectTransform slot, BlockShape shape)
-        {
-            if (slot == null || shape == null)
-            {
-                return;
-            }
-
-            const float cellSize = 28f;
-            const float pitch = 32f;
-            var bounds = new Vector2Int(shape.Width, shape.Height);
-            IReadOnlyList<Vector2Int> cells = shape.Cells;
-            for (int i = 0; i < cells.Count; i++)
-            {
-                Vector2Int cell = cells[i];
-                Image block = UIFactory.CreateImage($"Cell_{cell.y}_{cell.x}", slot, shape.Color);
-                block.raycastTarget = false;
-                UIFactory.Anchor(
-                    block.rectTransform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(
-                        (cell.x - (bounds.x - 1) * 0.5f) * pitch,
-                        -(cell.y - (bounds.y - 1) * 0.5f) * pitch),
-                    new Vector2(cellSize, cellSize));
-            }
-        }
-
-        private static IReadOnlyList<BlockShape> cachedPackPreviewShapes;
-
-        private static IReadOnlyList<BlockShape> PackPreviewShapes()
-        {
-            return cachedPackPreviewShapes ??= ShapeCatalog.CreatePack1Shapes();
-        }
-
-        private sealed class ThemeCard
-        {
-            public string Id;
-            public RectTransform Root;
-            public TMP_Text Title;
-            public Button ActionButton;
-            public TMP_Text ActionLabel;
-            public UnityEngine.Events.UnityAction ClickHandler;
-            public Button CoinButton;
-            public TMP_Text CoinLabel;
-            public UnityEngine.Events.UnityAction CoinClickHandler;
-            public float CoinConfirmUntil;
+            coin.Label.text = confirming ? GameLocalization.BuyForCoinsConfirm : price.ToString();
+            coin.CoinIcon.SetActive(!confirming);
+            coin.Background.color = confirming ? GameTheme.ShopBuy : MetaUi.CoinGold;
         }
     }
 }

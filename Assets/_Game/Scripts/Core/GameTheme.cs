@@ -149,6 +149,17 @@ namespace BlockPuzzle.Core
             return Resolve(id);
         }
 
+        /// <summary>
+        /// Shows a palette without saving or owning it (the shop's try-on). Live views repaint;
+        /// <see cref="ApplyFromProgress"/> puts the chosen theme back.
+        /// </summary>
+        public static void Preview(string id)
+        {
+            EnsureCatalog();
+            active = Resolve(id);
+            Changed?.Invoke();
+        }
+
         /// <summary>Re-reads <see cref="PlayerProgress.ThemeId"/> and repaints live views.</summary>
         public static void ApplyFromProgress()
         {

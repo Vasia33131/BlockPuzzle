@@ -21,11 +21,24 @@ namespace BlockPuzzle.UI
         private const float PauseCardHeight = 700f;
         private const float PauseCardWidth = 780f;
 
-        /// <summary>Top of the daily tasks block, right under the title.</summary>
-        private const float QuestsTop = -150f;
+        private const float ButtonFontSize = 52f;
+        private const float ToggleFontSize = ButtonFontSize;
+        private const float ButtonHeight = 140f;
+        private const float ToggleHeight = ButtonHeight;
 
-        /// <summary>Height of the sound / resume / restart / home stack at the bottom, plus a gap.</summary>
-        private const float ButtonStackHeight = 610f;
+        /// <summary>The main button of the screen is taller than the rest.</summary>
+        private const float ResumeHeight = 180f;
+
+        private const float ButtonGap = 28f;
+        private const float StackBottom = 50f;
+        private const float SettingsSize = 140f;
+
+        /// <summary>Top of the daily tasks block, under the title and the settings gear.</summary>
+        private const float QuestsTop = -190f;
+
+        /// <summary>Height of the music / sound / resume / restart / home stack at the bottom, plus a gap.</summary>
+        private const float ButtonStackHeight =
+            StackBottom + ButtonHeight * 4f + ResumeHeight + ButtonGap * 4f + 32f;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -37,9 +50,10 @@ namespace BlockPuzzle.UI
 
         private Button homeButton;
         private Button settingsButton;
+        private Button musicButton;
 
         private TMP_Text soundLabel;
-        private AudioManager audioManager;
+        private TMP_Text musicLabel;
         private DailyQuestsView questsView;
         private float cardFitScale = 1f;
 
@@ -47,6 +61,7 @@ namespace BlockPuzzle.UI
         {
             ResolveCard();
             ResolveSoundButton();
+            ResolveMusicButton();
             ResolveHomeButton();
             ResolveSettingsButton();
             HideLegacyShopButton();
@@ -79,22 +94,17 @@ namespace BlockPuzzle.UI
         {
             Unbind();
             gameManager = manager;
-            audioManager = gameManager != null ? gameManager.Audio : null;
-            if (audioManager == null)
-            {
-                audioManager = FindObjectOfType<AudioManager>(true);
-            }
-
             if (gameManager == null)
             {
                 return;
             }
 
             ResolveSoundButton();
+            ResolveMusicButton();
             ResolveCard();
             ResolveHomeButton();
             ResolveSettingsButton();
-            questsView = DailyQuestsView.Ensure(card);
+            questsView = MetaClock.DailyFeaturesEnabled ? DailyQuestsView.Ensure(card) : HideQuests(card);
             HideLegacyShopButton();
             gameManager.StateChanged += HandleStateChanged;
 
@@ -104,7 +114,9 @@ namespace BlockPuzzle.UI
             Listen(homeButton, HandleHomeClicked);
             Listen(settingsButton, HandleSettingsClicked);
             Listen(soundButton, HandleSoundClicked);
+            Listen(musicButton, HandleMusicClicked);
             GameLocalization.LanguageChanged += HandleLanguageChanged;
+            SoundSettings.Changed += RefreshSoundLabels;
 
             RefreshLocalizedTexts();
             SetVisible(false);
@@ -127,8 +139,9 @@ namespace BlockPuzzle.UI
             homeButton?.onClick.RemoveListener(HandleHomeClicked);
             settingsButton?.onClick.RemoveListener(HandleSettingsClicked);
             soundButton?.onClick.RemoveListener(HandleSoundClicked);
+            musicButton?.onClick.RemoveListener(HandleMusicClicked);
             GameLocalization.LanguageChanged -= HandleLanguageChanged;
-            audioManager = null;
+            SoundSettings.Changed -= RefreshSoundLabels;
         }
 
         private static void Listen(Button button, UnityEngine.Events.UnityAction action)
@@ -146,7 +159,23 @@ namespace BlockPuzzle.UI
 
         private void HandleResumeClicked() => gameManager?.SetPaused(false);
 
-        private void HandleRestartClicked() => gameManager?.RestartGame();
+        /// <summary>Restarting throws the run away, so the player always confirms it first.</summary>
+        private void HandleRestartClicked()
+        {
+            if (gameManager == null)
+            {
+                return;
+            }
+
+            RestartConfirmPanel confirm = FindObjectOfType<RestartConfirmPanel>(true);
+            if (confirm != null)
+            {
+                confirm.Show(gameManager.RestartGame);
+                return;
+            }
+
+            gameManager.RestartGame();
+        }
 
         /// <summary>
         /// Leaves for the main menu; the unfinished endless run is saved there and can be continued.
@@ -175,36 +204,31 @@ namespace BlockPuzzle.UI
 
         private void HandleSettingsClicked() => SettingsPanel.OpenIfAvailable();
 
-        private void HandleSoundClicked()
-        {
-            if (audioManager == null)
-            {
-                audioManager = FindObjectOfType<AudioManager>(true);
-            }
+        private void HandleSoundClicked() => SoundSettings.SetSfxMuted(!SoundSettings.SfxMuted);
 
-            if (audioManager == null)
-            {
-                return;
-            }
+        private void HandleMusicClicked() => SoundSettings.SetMusicMuted(!SoundSettings.MusicMuted);
 
-            audioManager.SetMuted(!audioManager.IsMuted);
-            RefreshSoundLabel();
-        }
-
-        private void RefreshSoundLabel()
+        private void RefreshSoundLabels()
         {
             if (soundLabel == null && soundButton != null)
             {
                 soundLabel = soundButton.GetComponentInChildren<TMP_Text>(true);
             }
 
-            if (soundLabel == null)
+            if (musicLabel == null && musicButton != null)
             {
-                return;
+                musicLabel = musicButton.GetComponentInChildren<TMP_Text>(true);
             }
 
-            bool muted = audioManager != null && audioManager.IsMuted;
-            soundLabel.text = muted ? GameLocalization.SoundOff : GameLocalization.SoundOn;
+            if (soundLabel != null)
+            {
+                soundLabel.text = SoundSettings.SfxMuted ? GameLocalization.SoundOff : GameLocalization.SoundOn;
+            }
+
+            if (musicLabel != null)
+            {
+                musicLabel.text = SoundSettings.MusicMuted ? GameLocalization.MusicOff : GameLocalization.MusicOn;
+            }
         }
 
         private void HandleLanguageChanged() => RefreshLocalizedTexts();
@@ -220,7 +244,10 @@ namespace BlockPuzzle.UI
             UIFactory.SetButtonText(resumeButton, GameLocalization.Resume);
             UIFactory.SetButtonText(restartButton, GameLocalization.Restart);
             UIFactory.SetButtonText(homeButton, GameLocalization.Home);
-            RefreshSoundLabel();
+            StyleToggleLabel(FindLabel(resumeButton));
+            StyleToggleLabel(FindLabel(restartButton));
+            StyleToggleLabel(FindLabel(homeButton));
+            RefreshSoundLabels();
         }
 
         private void HandleStateChanged(GameState state)
@@ -233,7 +260,7 @@ namespace BlockPuzzle.UI
             if (state == GameState.Paused)
             {
                 RefreshLocalizedTexts();
-                RefreshSoundLabel();
+                RefreshSoundLabels();
                 questsView?.Refresh();
                 Show();
             }
@@ -257,6 +284,7 @@ namespace BlockPuzzle.UI
             GameTween.Kill(canvasGroup);
             canvasGroup.blocksRaycasts = true;
             canvasGroup.interactable = true;
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(canvasGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
 
             if (card != null)
@@ -279,7 +307,7 @@ namespace BlockPuzzle.UI
                 fit = Mathf.Min(1f, (area.height - 60f) / height, (area.width - 40f) / PauseCardWidth);
             }
 
-            cardFitScale = Mathf.Max(0.5f, fit);
+            cardFitScale = Mathf.Max(0.3f, fit);
         }
 
         private void Hide()
@@ -303,6 +331,7 @@ namespace BlockPuzzle.UI
             }
 
             GameTween.Kill(canvasGroup);
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(canvasGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
 
             if (card != null)
@@ -359,6 +388,7 @@ namespace BlockPuzzle.UI
             if (soundButton != null)
             {
                 soundLabel = soundButton.GetComponentInChildren<TMP_Text>(true);
+                StyleToggleLabel(soundLabel);
                 return;
             }
 
@@ -374,9 +404,54 @@ namespace BlockPuzzle.UI
                 GameLocalization.SoundOn,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
-                34f);
+                ToggleFontSize);
             soundLabel = soundButton.GetComponentInChildren<TMP_Text>(true);
+            StyleToggleLabel(soundLabel);
             LayoutPauseButtons();
+        }
+
+        /// <summary>The music switch is not in the baked prefab, so it is built when missing.</summary>
+        private void ResolveMusicButton()
+        {
+            if (musicButton == null)
+            {
+                musicButton = transform.Find("Card/MusicButton")?.GetComponent<Button>();
+            }
+
+            if (musicButton == null && card != null)
+            {
+                musicButton = UIFactory.CreateButton(
+                    "MusicButton",
+                    card,
+                    GameLocalization.MusicOn,
+                    GameTheme.ButtonSecondary,
+                    GameTheme.TextPrimary,
+                    ToggleFontSize);
+                LayoutPauseButtons();
+            }
+
+            if (musicButton != null)
+            {
+                musicLabel = musicButton.GetComponentInChildren<TMP_Text>(true);
+                StyleToggleLabel(musicLabel);
+            }
+        }
+
+        private static TMP_Text FindLabel(Button button)
+        {
+            return button != null ? button.GetComponentInChildren<TMP_Text>(true) : null;
+        }
+
+        /// <summary>Button captions of the stack: 52 units, shrinking a little rather than running out of the button.</summary>
+        private static void StyleToggleLabel(TMP_Text label)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.fontSize = ToggleFontSize;
+            UIFactory.FitText(label);
         }
 
         /// <summary>The home button is not in older baked prefabs, so it is built when missing.</summary>
@@ -398,7 +473,7 @@ namespace BlockPuzzle.UI
                 GameLocalization.Home,
                 GameTheme.ButtonSecondary,
                 GameTheme.TextPrimary,
-                38f);
+                ButtonFontSize);
             LayoutPauseButtons();
         }
 
@@ -422,14 +497,26 @@ namespace BlockPuzzle.UI
                 new Vector2(1f, 1f),
                 new Vector2(1f, 1f),
                 new Vector2(-24f, -24f),
-                new Vector2(96f, 96f));
+                new Vector2(SettingsSize, SettingsSize));
 
             Image gear = UIFactory.CreateImage("Gear", settingsButton.transform, GameTheme.TextPrimary, false);
             gear.sprite = MenuArt.GearSprite;
             gear.preserveAspect = true;
             gear.raycastTarget = false;
             UIFactory.Anchor(
-                gear.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56f, 56f));
+                gear.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(76f, 76f));
+        }
+
+        /// <summary>No trusted clock in this build: no daily tasks block on the card (a baked one is hidden).</summary>
+        private static DailyQuestsView HideQuests(RectTransform host)
+        {
+            Transform existing = host != null ? host.Find(DailyQuestsView.ObjectName) : null;
+            if (existing != null)
+            {
+                existing.gameObject.SetActive(false);
+            }
+
+            return null;
         }
 
         private void HideLegacyShopButton()
@@ -463,11 +550,18 @@ namespace BlockPuzzle.UI
                 card.sizeDelta = new Vector2(card.sizeDelta.x, height);
             }
 
-            // Bottom-up: home, restart, resume, sound.
-            PlaceStackButton(homeButton, 50f, 100f);
-            PlaceStackButton(restartButton, 170f, 120f);
-            PlaceStackButton(resumeButton, 310f, 130f);
-            PlaceStackButton(soundButton, 460f, 100f);
+            // Bottom-up: home, restart, resume (the main one), sound, music. Every button is at least 140
+            // tall and 28 apart from the next one.
+            float y = StackBottom;
+            PlaceStackButton(homeButton, y, ButtonHeight);
+            y += ButtonHeight + ButtonGap;
+            PlaceStackButton(restartButton, y, ButtonHeight);
+            y += ButtonHeight + ButtonGap;
+            PlaceStackButton(resumeButton, y, ResumeHeight);
+            y += ResumeHeight + ButtonGap;
+            PlaceStackButton(soundButton, y, ToggleHeight);
+            y += ToggleHeight + ButtonGap;
+            PlaceStackButton(musicButton, y, ToggleHeight);
         }
 
         private static void PlaceStackButton(Button button, float y, float height)

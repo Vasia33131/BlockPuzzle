@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 724b40ce99679494aa46fa79d5375b65, type: 3}
+  m_Name: SoundBank
+  m_EditorClassIdentifier: 
+  entries:
+  - Id: 0
+    Clip: {fileID: 8300000, guid: 5b45b178058aff441809963121d66514, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Ui_Click
+  - Id: 1
+    Clip: {fileID: 8300000, guid: 1696e17a65ae93a45a94a1a82430d652, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Ui_Open
+  - Id: 2
+    Clip: {fileID: 8300000, guid: 53f144e5330c48d47aecc6614f2e7cf3, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Ui_Close
+  - Id: 3
+    Clip: {fileID: 8300000, guid: 406d099a543e44744b77ab41a2098cee, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Piece_Pickup
+  - Id: 4
+    Clip: {fileID: 8300000, guid: 4c06a840a98df854aa63fd373028fe08, type: 3}
+    Volume: 1
+    PitchSpread: 0.06
+    DefaultClipName: Piece_Place
+  - Id: 5
+    Clip: {fileID: 8300000, guid: b6c5b2c531151c2418e85c87aefd7797, type: 3}
+    Volume: 0.5
+    PitchSpread: 0
+    DefaultClipName: Piece_Invalid
+  - Id: 6
+    Clip: {fileID: 8300000, guid: c739656109e5e4143990ffacbbf2d02b, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Line_Clear
+  - Id: 7
+    Clip: {fileID: 8300000, guid: 3eba28ac834d7de4d9b66e396a941b13, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Line_Clear_Multi
+  - Id: 8
+    Clip: {fileID: 8300000, guid: a951e6c53ab65af4db33e7c3c50c9064, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Combo
+  - Id: 9
+    Clip: {fileID: 8300000, guid: 4471c1099d01e3e4d9b4ff1f51b00298, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Board_Clear
+  - Id: 10
+    Clip: {fileID: 8300000, guid: 035e1ed68eb47c54887cd3c2e4577432, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Booster_Use
+  - Id: 11
+    Clip: {fileID: 8300000, guid: bc0d8cfa7e381ad439871df39b03c2d6, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Coin
+  - Id: 12
+    Clip: {fileID: 8300000, guid: a45985a8100935e4985f1f021f6fd570, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Jingle_NewRecord
+  - Id: 13
+    Clip: {fileID: 8300000, guid: 390c536d71d57ac4ba3f2636b72a8b52, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Jingle_GameOver
+  - Id: 14
+    Clip: {fileID: 8300000, guid: 15b2bbba654a8354290b9ccd95bb6f17, type: 3}
+    Volume: 1
+    PitchSpread: 0
+    DefaultClipName: Jingle_Win

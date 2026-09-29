@@ -120,6 +120,7 @@ namespace BlockPuzzle.UI
             Group.alpha = 0f;
             Card.localScale = Vector3.one * (fitScale * 0.85f);
 
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(Group, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
             GameTween.Scale(Card, Vector3.one * fitScale, ShowDuration, TweenEase.OutBack, unscaled: true);
         }
@@ -143,6 +144,7 @@ namespace BlockPuzzle.UI
                 return;
             }
 
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(Group, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
             GameTween.Scale(Card, Vector3.one * (fitScale * 0.85f), HideDuration, TweenEase.InQuad, unscaled: true);
         }

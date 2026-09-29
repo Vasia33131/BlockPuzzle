@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c1e7a3b9d4f4e0f8a62b7d1c3e95a10, type: 3}
   m_Name: SocialLinksConfig
   m_EditorClassIdentifier: 
-  enabled: 1
+  enabled: 0
   telegramUrl: 
   youtubeUrl: 

@@ -10,8 +10,8 @@ namespace BlockPuzzle.Platform
     ///
     /// The day comes from <c>YG2.ServerTime()</c> (PluginYG2 "ServerTime" module,
     /// <c>ServerTime_yg</c>) so that moving the device clock gives nothing. Without the
-    /// module the meta falls back to the device clock and logs a warning — install the
-    /// module before release.
+    /// module a build disables the daily reward and tasks (<see cref="MetaClock.DailyFeaturesEnabled"/>);
+    /// only the editor falls back to the device clock.
     ///
     /// The save fields are written at once on every change, so any other
     /// <c>YG2.SaveProgress()</c> carries them; the cloud write itself is throttled
@@ -85,10 +85,14 @@ namespace BlockPuzzle.Platform
         {
 #if ServerTime_yg
             MetaClock.SetServerTimeSource(() => YG2.ServerTime());
-#else
+#elif UNITY_EDITOR
             Debug.LogWarning(
-                "[Meta] PluginYG2 ServerTime module is not installed: daily reward and tasks use the device clock.");
+                "[Meta] PluginYG2 ServerTime module is not installed: in the editor the daily reward and tasks use the device clock; a build hides them.");
             MetaClock.UseDeviceTimeFallback();
+#else
+            // No trusted clock: leave it unset, so MetaClock.TryGetToday fails and nothing calendar-based pays out.
+            Debug.LogWarning(
+                "[Meta] PluginYG2 ServerTime module is not installed: daily reward and tasks are disabled.");
 #endif
         }
 

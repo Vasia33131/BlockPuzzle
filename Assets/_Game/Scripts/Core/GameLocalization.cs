@@ -130,8 +130,10 @@ namespace BlockPuzzle.Core
         public static string BestPrefix => Pick("РЕКОРД: ", "BEST: ");
 
         public static string PauseTitle => Pick("ПАУЗА", "PAUSE");
-        public static string SoundOn => Pick("ЗВУК: ВКЛ", "SOUND: ON");
-        public static string SoundOff => Pick("ЗВУК: ВЫКЛ", "SOUND: OFF");
+        public static string SoundOn => Pick("ЗВУКИ: ВКЛ", "SOUNDS: ON");
+        public static string SoundOff => Pick("ЗВУКИ: ВЫКЛ", "SOUNDS: OFF");
+        public static string MusicOn => Pick("МУЗЫКА: ВКЛ", "MUSIC: ON");
+        public static string MusicOff => Pick("МУЗЫКА: ВЫКЛ", "MUSIC: OFF");
         public static string Resume => Pick("ПРОДОЛЖИТЬ", "RESUME");
         public static string Restart => Pick("НАЧАТЬ ЗАНОВО", "RESTART");
 
@@ -161,6 +163,69 @@ namespace BlockPuzzle.Core
             "Эти фигуры будут доступны в наборе",
             "These shapes will be added to your set");
         public static string Cancel => Pick("Отмена", "Cancel");
+        public static string Unavailable => Pick("Недоступно", "Unavailable");
+        public static string ShopThemesTitle => Pick("ТЕМЫ ОФОРМЛЕНИЯ", "THEMES");
+        public static string ShopThemesHint => Pick("Меняют цвета поля и фигур", "Change the colors of the board and shapes");
+        public static string ShopTryOn => Pick("Примерить", "Try on");
+
+        /// <summary>One line that sells the mood of a theme on its shop card.</summary>
+        public static string ThemeTagline(string themeId)
+        {
+            if (themeId == ThemeConfig.OceanId)
+            {
+                return Pick("Морская свежесть: бирюза, лёд и глубина", "Sea breeze: turquoise, ice and deep blue");
+            }
+
+            if (themeId == ThemeConfig.CandyId)
+            {
+                return Pick("Сладкие блоки как мармелад и глазурь", "Sweet blocks like jelly candy and icing");
+            }
+
+            return Pick("Яркие блоки на тёмном поле", "Bright blocks on a dark board");
+        }
+
+        /// <summary>Ribbon on a theme card; null for none.</summary>
+        public static string ThemeBadge(string themeId)
+        {
+            if (themeId == ThemeConfig.CandyId)
+            {
+                return Pick("ХИТ", "HOT");
+            }
+
+            if (themeId == ThemeConfig.OceanId)
+            {
+                return Pick("НОВИНКА", "NEW");
+            }
+
+            return null;
+        }
+        public static string ShopPackTitle => Pick("+4 НОВЫЕ ФИГУРЫ", "+4 NEW SHAPES");
+        public static string ShopPackHint => Pick("Навсегда добавляются в игру", "Added to the game forever");
+        public static string ShopCoinsTitle => Pick("МОНЕТЫ", "COINS");
+        public static string ShopCoinsHint => Pick("Тратьте на темы оформления", "Spend them on themes");
+        public static string ShopCoinAdCaption => Pick("За просмотр рекламы", "For watching an ad");
+        public static string ShopCoinAdAction => Pick("Смотреть", "Watch");
+
+        /// <summary>Caption under a coin pack: small, popular, best value.</summary>
+        public static string ShopCoinPackCaption(string productId)
+        {
+            switch (productId)
+            {
+                case CoinPackCatalog.MediumId:
+                    return Pick("Популярный", "Popular");
+                case CoinPackCatalog.LargeId:
+                    return Pick("Самый выгодный", "Best value");
+                default:
+                    return Pick("Горсть монет", "A handful of coins");
+            }
+        }
+
+        public static string ShopNoAdsTitle => Pick("БЕЗ РЕКЛАМЫ", "NO ADS");
+        public static string ShopNoAdsHint => Pick(
+            "Убирает баннер и рекламу между партиями. Бонусы за просмотр остаются",
+            "Removes the banner and the ads between games. Bonuses for watching stay");
+        public static string ShopNoAdsCaption => Pick("Навсегда", "Forever");
+        public static string ThemePreviewHint => Pick("Нажмите, чтобы вернуться в магазин", "Tap to return to the shop");
         public static string ClassicTheme => Pick("Классика", "Classic");
         public static string OceanTheme => Pick("Океан", "Ocean");
         public static string CandyTheme => Pick("Конфеты", "Candy");
@@ -179,10 +244,25 @@ namespace BlockPuzzle.Core
         public static string ContinueAd => Pick("Продолжить — реклама", "Continue — ad");
         public static string ContinueHint => Pick("Уберём 1–2 линии", "We'll clear 1–2 lines");
 
-        public static string WatchAd => Pick("Смотреть", "Watch ad");
+        // Game-over card: the main button names the ad outright (Yandex rewarded requirement).
+        public static string GameOverContinue => Pick("ПРОДОЛЖИТЬ", "CONTINUE");
+        public static string GameOverContinueCaption => Pick("Реклама · уберём 1–2 линии", "Ad · we'll clear 1–2 lines");
+        public static string GameOverRestart => Pick("Начать заново", "Start over");
+        public static string GameOverMenu => Pick("В меню", "Menu");
+        public static string GameOverAuthHint => Pick(
+            "Войдите, чтобы попасть в таблицу лидеров",
+            "Sign in to join the leaderboard");
+        public static string SignInShort => Pick("Войти", "Sign in");
+
+        public static string WatchAd => Pick("Смотреть рекламу", "Watch ad");
         public static string AdBonusWarning => Pick(
             "Бонус за просмотр рекламы",
             "Bonus for watching an ad");
+        // Short captions under the booster buttons.
+        public static string BoosterUndo => Pick("Отмена", "Undo");
+        public static string BoosterExtra => Pick("Фигура", "Piece");
+        public static string BoosterClear => Pick("Линия", "Line");
+        public static string AdChip => "AD";
         public static string UndoTitle => Pick("Отмена хода", "Undo move");
         public static string UndoBody => Pick(
             "Вернёт последнюю поставленную фигуру на панель.",
@@ -355,6 +435,12 @@ namespace BlockPuzzle.Core
             "The progress of this attempt will be lost.");
         public static string LeaveLevelYes => Pick("ВЫЙТИ", "LEAVE");
         public static string LeaveLevelNo => Pick("ОСТАТЬСЯ", "STAY");
+        public static string RestartConfirmTitle => Pick("Начать заново?", "Start over?");
+        public static string RestartConfirmBody => Pick(
+            "Точно хотите начать заново? Весь прогресс этой партии будет потерян.",
+            "Are you sure you want to start over? All progress of this game will be lost.");
+        public static string RestartConfirmYes => Pick("СБРОСИТЬ", "RESET");
+        public static string RestartConfirmNo => Pick("ОТМЕНА", "CANCEL");
 
         /// <summary>Russian plural: 1 линию, 2 линии, 5 линий.</summary>
         private static string Plural(int n, string one, string few, string many)

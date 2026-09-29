@@ -18,7 +18,15 @@ namespace YG
         public string ownedPacks;
 
         public int bestScore;
+
+        /// <summary>
+        /// The single sound switch of older versions. It is still written (true only while both
+        /// switches below are off) and still read: it silences both, so an old save migrates.
+        /// </summary>
         public bool muted;
+
+        public bool musicMuted;
+        public bool sfxMuted;
 
         /// <summary>
         /// Finished runs (Game Over or a restart from pause). Keeps new players free

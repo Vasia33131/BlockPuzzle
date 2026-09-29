@@ -216,6 +216,7 @@ namespace BlockPuzzle.UI
             GameTween.Kill(canvasGroup);
             canvasGroup.blocksRaycasts = true;
             canvasGroup.interactable = true;
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(canvasGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
 
             GameTween.Kill(card);
@@ -237,6 +238,7 @@ namespace BlockPuzzle.UI
             canvasGroup.interactable = false;
 
             GameTween.Kill(canvasGroup);
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(canvasGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
             GameTween.Kill(card);
             GameTween.Scale(card, Vector3.one * (cardFitScale * 0.85f), HideDuration, TweenEase.InQuad, unscaled: true);

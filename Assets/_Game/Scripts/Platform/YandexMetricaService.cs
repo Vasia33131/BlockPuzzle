@@ -16,6 +16,7 @@ namespace BlockPuzzle.Platform
     /// first_move, game_start, game_over {score, moves, duration_sec, lines}, restart,
     /// new_record, rewarded_request {type}, rewarded_success {type}, interstitial_shown,
     /// shop_open, purchase {id}, social_click {network}, tutorial_done (sent by <see cref="YandexTutorialService"/>),
+    /// gameover_continue_click and gameover_restart_click {continue_offered: 1 | 0} (taps on the game-over card),
     /// and for campaign levels level_start {n}, level_win {n, stars, moves_left},
     /// level_fail {n, reason: moves | space | quit}, level_continue {n}.
     ///
@@ -41,8 +42,11 @@ namespace BlockPuzzle.Platform
         public const string LevelWin = "level_win";
         public const string LevelFail = "level_fail";
         public const string LevelContinue = "level_continue";
+        public const string GameOverContinueClick = "gameover_continue_click";
+        public const string GameOverRestartClick = "gameover_restart_click";
 
         private GameManager gameManager;
+        private GameOverPanel gameOverPanel;
         private GridManager grid;
         private ScoreManager score;
         private LevelRunController levelRun;
@@ -54,6 +58,9 @@ namespace BlockPuzzle.Platform
         private bool gameOverSent;
         private bool shopWasOpen;
         private static bool firstMoveSentThisLaunch;
+
+        private const float BindRetrySeconds = 0.5f;
+        private float nextBindTime;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => firstMoveSentThisLaunch = false;
@@ -106,23 +113,68 @@ namespace BlockPuzzle.Platform
             YG2.onOpenInterAdv -= HandleInterstitialOpened;
             YG2.onPurchaseSuccess -= HandlePurchase;
             SocialLinks.Clicked -= HandleSocialClicked;
+            UnbindGameOverPanel();
             Unbind();
         }
 
         private void Update()
         {
-            if (gameManager == null)
+            // A scene-wide search is far too heavy for every frame: retry the missing pieces twice a second.
+            if ((gameManager == null || shopPanel == null || gameOverPanel == null)
+                && Time.unscaledTime >= nextBindTime)
             {
-                TryBind();
-            }
+                nextBindTime = Time.unscaledTime + BindRetrySeconds;
 
-            if (shopPanel == null)
-            {
-                shopPanel = FindObjectOfType<ShopPanel>(true);
+                if (gameManager == null)
+                {
+                    TryBind();
+                }
+
+                if (shopPanel == null)
+                {
+                    shopPanel = FindObjectOfType<ShopPanel>(true);
+                }
+
+                if (gameOverPanel == null)
+                {
+                    TryBindGameOverPanel();
+                }
             }
 
             TrackShop();
             TrackPlayTime();
+        }
+
+        private void TryBindGameOverPanel()
+        {
+            GameOverPanel panel = FindObjectOfType<GameOverPanel>(true);
+            if (panel == null)
+            {
+                return;
+            }
+
+            gameOverPanel = panel;
+            gameOverPanel.ContinueRequested += HandleGameOverContinueClicked;
+            gameOverPanel.RestartClicked += HandleGameOverRestartClicked;
+        }
+
+        private void UnbindGameOverPanel()
+        {
+            if (gameOverPanel == null)
+            {
+                return;
+            }
+
+            gameOverPanel.ContinueRequested -= HandleGameOverContinueClicked;
+            gameOverPanel.RestartClicked -= HandleGameOverRestartClicked;
+            gameOverPanel = null;
+        }
+
+        private static void HandleGameOverContinueClicked() => Send(GameOverContinueClick);
+
+        private static void HandleGameOverRestartClicked(bool continueOffered)
+        {
+            Send(GameOverRestartClick, new Dictionary<string, object> { { "continue_offered", continueOffered ? 1 : 0 } });
         }
 
         private void TryBind()

@@ -28,16 +28,14 @@ Downloaded 2026-09-28.
 | Jingle_Win.ogg | Music Jingles / jingles_PIZZI01.ogg |
 | Jingle_GameOver.ogg | Music Jingles / jingles_PIZZI10.ogg |
 
-Candidates/ holds alternatives from the same packs for auditioning. Nothing there is
-referenced by the game, so it does not end up in the build. Delete the folder once the
-final sounds are picked.
+The audition alternatives (Candidates/) were removed before release; they are in git history.
 
 ## Music — OpenGameArt.org, CC0
 | File in Music/ | Track | Author | Source |
 |---|---|---|---|
-| Music_Game_CalmPiano.mp3 | Calm Piano 1 (Vaporware) | The Cynic Project (cynicmusic.com) | https://opengameart.org/content/calm-piano-1-vaporware |
 | Music_Menu_Bossa.mp3 | Bossa Shop Theme (HD) | SpringySpringo | https://opengameart.org/content/bossa-shop-theme-in-low-fi-and-hd |
 | Music_Alt_CalmLoop.mp3 | Calm Loop | wipics | https://opengameart.org/content/calm-loop |
+| Music_Game_Tempo.mp3 | Tempo (tempo.mp3, from "Music Loops") | pauliuw | https://opengameart.org/content/music-loops |
 
 Credit is not required, but the authors appreciate it (e.g. in the Yandex game description).
 

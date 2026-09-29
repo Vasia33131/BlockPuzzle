@@ -30,6 +30,13 @@ namespace BlockPuzzle.UI
                     return coinSprite;
                 }
 
+                // The painted coin when it is in the project; the disc below is the fallback.
+                coinSprite = GameArt.Coin;
+                if (coinSprite != null)
+                {
+                    return coinSprite;
+                }
+
                 var texture = new Texture2D(CoinTextureSize, CoinTextureSize, TextureFormat.RGBA32, false)
                 {
                     name = "MetaCoin",

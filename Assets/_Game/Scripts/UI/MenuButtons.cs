@@ -28,7 +28,25 @@ namespace BlockPuzzle.UI
 
         public void SetText(string content) => UIFactory.SetText(Label, content);
 
-        public void SetSubtitle(string content) => UIFactory.SetText(Subtitle, content);
+        /// <summary>
+        /// Writes the small line under the caption. An empty one gives its room back, so the icon
+        /// and caption row sits in the middle of the face instead of hanging above a blank strip.
+        /// </summary>
+        public void SetSubtitle(string content)
+        {
+            if (Subtitle == null)
+            {
+                return;
+            }
+
+            bool shown = !string.IsNullOrEmpty(content);
+            UIFactory.SetText(Subtitle, content);
+            Subtitle.gameObject.SetActive(shown);
+            if (Content != null)
+            {
+                Content.offsetMin = new Vector2(0f, shown ? MenuButtonFactory.SubtitleReserve : 0f);
+            }
+        }
     }
 
     /// <summary>Builds the chunky menu buttons: a coloured face over a darker lower edge, with a gloss strip.</summary>
@@ -38,7 +56,11 @@ namespace BlockPuzzle.UI
         private const float IconGap = 28f;
         private const float LabelSize = 62f;
         private const float ShineWidth = 70f;
-        private const float SubtitleHeight = 52f;
+        private const float SubtitleHeight = 56f;
+        private const float SubtitleBottom = 18f;
+
+        /// <summary>Room the subtitle takes at the bottom of the face, under the icon and caption row.</summary>
+        public const float SubtitleReserve = SubtitleBottom + SubtitleHeight - 8f;
 
         /// <summary>
         /// Wide rounded button with an optional icon left of a white outlined caption.
@@ -131,18 +153,22 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            button.Content.offsetMin = new Vector2(0f, SubtitleHeight);
+            button.Content.offsetMin = new Vector2(0f, SubtitleReserve);
 
             TextMeshProUGUI subtitle = UIFactory.CreateText(
                 "Subtitle", button.Content.parent, string.Empty, fontSize, color, TextAlignmentOptions.Center, FontStyles.Bold);
             MenuArt.ApplyOutlinedMaterial(subtitle);
-            subtitle.overflowMode = TextOverflowModes.Ellipsis;
+            // Overflow, not Ellipsis: with the outline padding a line can be a hair taller than the
+            // rect, and Ellipsis then drops the whole line and the subtitle vanishes. Auto-size keeps it inside.
+            subtitle.overflowMode = TextOverflowModes.Overflow;
+            subtitle.enableWordWrapping = false;
+            UIFactory.FitText(subtitle);
             RectTransform rect = subtitle.rectTransform;
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = new Vector2(0f, 8f);
-            rect.sizeDelta = new Vector2(-48f, SubtitleHeight - 8f);
+            rect.anchoredPosition = new Vector2(0f, SubtitleBottom);
+            rect.sizeDelta = new Vector2(-48f, SubtitleHeight);
             button.Subtitle = subtitle;
         }
 

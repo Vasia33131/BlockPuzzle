@@ -21,20 +21,28 @@ namespace BlockPuzzle.UI
         private const float LayoutSettleDelay = 0.1f;
 
         private const float PortraitTopMargin = 12f;
-        private const float PortraitTopHeight = 164f;
+        private const float PortraitTopHeight = 180f;
         private const float PortraitSideMargin = 16f;
-        private const float PortraitPauseSize = 148f;
+        private const float PortraitPauseSize = 140f;
 
         private const float LandscapeTopMargin = 8f;
-        private const float LandscapeTopHeight = 132f;
+        private const float LandscapeTopHeight = 168f;
         private const float LandscapeSideMargin = 12f;
-        private const float LandscapePauseSize = 124f;
+        private const float LandscapePauseSize = 140f;
 
-        private const float ScoreSectionWidth = 320f;
-        private const float BestSectionWidth = 280f;
-        private const float SectionSidePadding = 20f;
+        private const float SectionSidePadding = 12f;
+        private const float SectionGap = 20f;
+        private const float ScoreRowHeight = 92f;
+        private const float BestRowHeight = 60f;
+        private const float BestRowTop = 4f + ScoreRowHeight + 8f;
+        private const float ScoreFontMax = 76f;
+        private const float ScoreFontMin = 44f;
+        private const float BestFontMax = 44f;
+        private const float BestFontMin = 34f;
+        private const float CrownSize = 48f;
+        private const float CrownGap = 14f;
         private const float PauseRightPadding = 15f;
-        private const float HudButtonGap = 12f;
+        private const float HudButtonGap = 40f;
 
         [Header("UI Панели")]
         [SerializeField] private RectTransform safeArea;
@@ -293,6 +301,8 @@ namespace BlockPuzzle.UI
             Transform parent = shopButton.parent;
             bool insideTopPanel = topPanel != null && parent == topPanel;
             float pauseSize = pauseButton != null ? pauseButton.sizeDelta.x : size;
+            HudShopButton hudShop = shopButton.GetComponent<HudShopButton>();
+            float shopWidth = hudShop != null ? hudShop.DesiredWidth : HudShopButton.MinWidth;
 
             if (insideTopPanel)
             {
@@ -311,8 +321,8 @@ namespace BlockPuzzle.UI
                 shopButton.anchoredPosition = new Vector2(-(side + pauseSize + HudButtonGap), -top);
             }
 
-            shopButton.sizeDelta = new Vector2(size, size);
-            ScaleShopCart(shopButton, size);
+            shopButton.sizeDelta = new Vector2(shopWidth, HudShopButton.Height);
+            hudShop?.Layout(shopWidth);
         }
 
         private void ApplyHudSections(bool isPortrait)
@@ -322,10 +332,15 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            float height = isPortrait ? PortraitTopHeight : LandscapeTopHeight;
             float pauseSize = isPortrait ? PortraitPauseSize : LandscapePauseSize;
-            float shopSize = shopButton != null ? pauseSize : 0f;
-            float shopGap = shopButton != null ? HudButtonGap : 0f;
+            float shopSize = 0f;
+            float shopGap = 0f;
+            if (shopButton != null)
+            {
+                shopSize = shopButton.sizeDelta.x;
+                shopGap = HudButtonGap;
+            }
+
             float rightReserved = PauseRightPadding + pauseSize + shopGap + shopSize;
 
             // Remove a leftover HUD mute control if an older bake still has it.
@@ -338,28 +353,56 @@ namespace BlockPuzzle.UI
             RectTransform score = FindHudSection(topPanel, "ScoreSection", "ScoreGroup");
             RectTransform best = FindHudSection(topPanel, "BestSection", "BestGroup");
 
+            // Left column takes everything the right-hand controls leave free.
+            float columnWidth = Mathf.Max(200f, topPanel.rect.width - rightReserved - SectionSidePadding - SectionGap);
+
             if (score != null)
             {
                 UIFactory.Anchor(
                     score,
-                    new Vector2(0f, 0.5f),
-                    new Vector2(0f, 0.5f),
-                    new Vector2(SectionSidePadding, 0f),
-                    new Vector2(ScoreSectionWidth, height));
-                CompactLegacyScoreBlock(score, TextAlignmentOptions.MidlineLeft);
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(SectionSidePadding, -4f),
+                    new Vector2(columnWidth, ScoreRowHeight));
+                CompactLegacyScoreBlock(score, TextAlignmentOptions.MidlineLeft, ScoreFontMax, ScoreFontMin);
             }
 
             if (best != null)
             {
-                // Keep Best clear of the right controls on narrow canvases.
-                float bestWidth = Mathf.Min(BestSectionWidth, Mathf.Max(160f, topPanel.rect.width - rightReserved - ScoreSectionWidth));
                 UIFactory.Anchor(
                     best,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    Vector2.zero,
-                    new Vector2(bestWidth, height));
-                CompactLegacyScoreBlock(best, TextAlignmentOptions.Center);
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(SectionSidePadding, -BestRowTop),
+                    new Vector2(columnWidth, BestRowHeight));
+                CompactLegacyScoreBlock(best, TextAlignmentOptions.MidlineLeft, BestFontMax, BestFontMin);
+                LayoutBestCrown(best);
+            }
+        }
+
+        /// <summary>Crown at the left edge of the record row; the number starts after it.</summary>
+        private static void LayoutBestCrown(RectTransform best)
+        {
+            RectTransform crown = HudController.EnsureCrown(best);
+            if (crown == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                crown,
+                new Vector2(0f, 0.5f),
+                new Vector2(0f, 0.5f),
+                Vector2.zero,
+                new Vector2(CrownSize, CrownSize));
+
+            for (int i = 0; i < best.childCount; i++)
+            {
+                var child = best.GetChild(i) as RectTransform;
+                if (child != null && child != crown && child.GetComponent<TMP_Text>() != null)
+                {
+                    child.offsetMin = new Vector2(CrownSize + CrownGap, 0f);
+                }
             }
         }
 
@@ -424,7 +467,8 @@ namespace BlockPuzzle.UI
             }
         }
 
-        private static void CompactLegacyScoreBlock(RectTransform section, TextAlignmentOptions alignment)
+        private static void CompactLegacyScoreBlock(
+            RectTransform section, TextAlignmentOptions alignment, float fontMax, float fontMin)
         {
             if (section == null)
             {
@@ -439,7 +483,7 @@ namespace BlockPuzzle.UI
                     continue;
                 }
 
-                if (child.name.EndsWith("Label"))
+                if (child.name.EndsWith("Label") || child.name == HudController.CrownName)
                 {
                     continue;
                 }
@@ -452,17 +496,17 @@ namespace BlockPuzzle.UI
                     text.enableWordWrapping = false;
                     text.overflowMode = TextOverflowModes.Overflow;
                     text.enableAutoSizing = true;
-                    text.fontSizeMin = 16f;
-                    text.fontSizeMax = 36f;
+                    text.fontSizeMin = fontMin;
+                    text.fontSizeMax = fontMax;
                 }
             }
         }
 
         private static void ScalePauseBars(RectTransform pause, float size)
         {
-            float barWidth = Mathf.Max(8f, size * 0.14f);
-            float barHeight = Mathf.Max(22f, size * 0.50f);
-            float offset = Mathf.Max(8f, size * 0.15f);
+            float barWidth = Mathf.Max(12f, size * 0.17f);
+            float barHeight = Mathf.Max(30f, size * 0.56f);
+            float offset = Mathf.Max(12f, size * 0.19f);
 
             for (int i = 0; i < 2; i++)
             {
@@ -478,53 +522,6 @@ namespace BlockPuzzle.UI
                     new Vector2(0.5f, 0.5f),
                     new Vector2(i == 0 ? -offset : offset, 0f),
                     new Vector2(barWidth, barHeight));
-            }
-        }
-
-        private static void ScaleShopCart(RectTransform shop, float size)
-        {
-            float bodyW = Mathf.Max(18f, size * 0.52f);
-            float bodyH = Mathf.Max(12f, size * 0.34f);
-            float wheel = Mathf.Max(7f, size * 0.16f);
-            float handleW = Mathf.Max(4f, size * 0.08f);
-            float handleH = Mathf.Max(10f, size * 0.28f);
-
-            var body = shop.Find("CartBody") as RectTransform;
-            if (body != null)
-            {
-                UIFactory.Anchor(
-                    body,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(-size * 0.04f, -size * 0.02f),
-                    new Vector2(bodyW, bodyH));
-            }
-
-            for (int i = 0; i < 2; i++)
-            {
-                var wheelRect = shop.Find($"Wheel_{i}") as RectTransform;
-                if (wheelRect == null)
-                {
-                    continue;
-                }
-
-                UIFactory.Anchor(
-                    wheelRect,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(i == 0 ? -size * 0.16f : size * 0.13f, -size * 0.28f),
-                    new Vector2(wheel, wheel));
-            }
-
-            var handle = shop.Find("CartHandle") as RectTransform;
-            if (handle != null)
-            {
-                UIFactory.Anchor(
-                    handle,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(size * 0.24f, size * 0.12f),
-                    new Vector2(handleW, handleH));
             }
         }
 
@@ -563,7 +560,7 @@ namespace BlockPuzzle.UI
             float boosterReserved = 0f;
             if (booster != null)
             {
-                boosterReserved = BoosterBar.BarHeight + BoosterBar.TrayGap;
+                boosterReserved = BoosterBar.BarHeight + BoosterBar.TrayGap + BoosterBar.BoardGap;
             }
 
             if (gridArea != null)

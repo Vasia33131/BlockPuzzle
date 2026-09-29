@@ -17,9 +17,14 @@ namespace BlockPuzzle.UI
 
         private const float IconSize = 60f;
         private const float PlusSize = 64f;
+        private const float HitWidth = 160f;
+        private const float HitHeight = 140f;
         private const float Padding = 14f;
         private const float CountDuration = 0.5f;
         private const float FontSize = 44f;
+
+        /// <summary>While the balance rolls up, a coin sound ticks at most this often.</summary>
+        private const float CoinTickSeconds = 0.08f;
 
         /// <summary>Overall size of the counter.</summary>
         public static readonly Vector2 Size = new Vector2(330f, 88f);
@@ -84,8 +89,15 @@ namespace BlockPuzzle.UI
             }
 
             float elapsed = 0f;
+            float nextTick = 0f;
             while (elapsed < CountDuration)
             {
+                if (to > from && Time.unscaledTime >= nextTick)
+                {
+                    SfxHub.Play(SfxId.Coin);
+                    nextTick = Time.unscaledTime + CoinTickSeconds;
+                }
+
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / CountDuration);
                 float eased = 1f - Mathf.Pow(1f - t, 3f);
@@ -158,6 +170,15 @@ namespace BlockPuzzle.UI
                 new Vector2(-Padding, 0f),
                 new Vector2(PlusSize, PlusSize));
             plusButton.onClick.AddListener(HandlePlusClicked);
+
+            // The round "+" is only 64 wide: a see-through 160x140 pad around it makes it a fair target for a thumb.
+            Image hit = UIFactory.CreateImage("HitArea", plusButton.transform, new Color(1f, 1f, 1f, 0f), false);
+            UIFactory.Anchor(
+                hit.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(HitWidth, HitHeight));
 
             built = true;
             SetShown(MetaProgress.Coins);

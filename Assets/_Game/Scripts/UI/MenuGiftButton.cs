@@ -136,6 +136,19 @@ namespace BlockPuzzle.UI
         private static void BuildBox(RectTransform parent)
         {
             var bottom = new Vector2(0.5f, 0f);
+
+            // The painted gift when it is in the project, the box from rounded shapes otherwise.
+            Sprite painted = GameArt.Gift;
+            if (painted != null)
+            {
+                Image picture = UIFactory.CreateImage("Gift", parent, Color.white, false);
+                picture.sprite = painted;
+                picture.preserveAspect = true;
+                picture.raycastTarget = false;
+                UIFactory.Anchor(picture.rectTransform, bottom, new Vector2(0.5f, 0f), Vector2.zero, new Vector2(ArtWidth, ArtHeight));
+                return;
+            }
+
             Part("Body", parent, BoxColor, bottom, new Vector2(0f, 4f), new Vector2(128f, 88f), true);
             Part("BodyRibbon", parent, RibbonColor, bottom, new Vector2(0f, 4f), new Vector2(28f, 88f), true);
             Part("Lid", parent, LidColor, bottom, new Vector2(0f, 84f), new Vector2(150f, 44f), true);

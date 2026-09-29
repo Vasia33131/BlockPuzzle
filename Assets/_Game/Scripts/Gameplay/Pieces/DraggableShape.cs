@@ -113,6 +113,7 @@ namespace BlockPuzzle.Pieces
             }
 
             dragging = true;
+            SfxHub.Play(SfxId.PiecePickup);
             GameTween.Kill(rect);
 
             if (dragLayer != null)
@@ -164,6 +165,7 @@ namespace BlockPuzzle.Pieces
                 }
             }
 
+            SfxHub.Play(SfxId.PieceInvalid);
             ReturnToSlot();
         }
 

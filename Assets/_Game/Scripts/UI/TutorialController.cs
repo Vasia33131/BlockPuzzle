@@ -603,16 +603,19 @@ namespace BlockPuzzle.UI
             hand.pivot = new Vector2(0.5f, 1f);
             handGroup = hand.gameObject.AddComponent<CanvasGroup>();
 
-            if (handSprite != null)
+            // A sprite set in the inspector wins; then the painted hand from Resources/UI/Art, whose
+            // fingertip is not its pivot but a fixed point near its top (see GameArt.TutorialHandTip).
+            Sprite picked = handSprite != null ? handSprite : GameArt.TutorialHand;
+            if (picked != null)
             {
                 Image picture = UIFactory.CreateImage("Picture", hand, Color.white, false);
-                picture.sprite = handSprite;
+                picture.sprite = picked;
                 picture.preserveAspect = true;
                 picture.raycastTarget = false;
                 RectTransform pictureRect = picture.rectTransform;
                 float height = cell * 1.6f;
-                float width = height * handSprite.rect.width / Mathf.Max(1f, handSprite.rect.height);
-                Vector2 pivot = handSprite.pivot / handSprite.rect.size;
+                float width = height * picked.rect.width / Mathf.Max(1f, picked.rect.height);
+                Vector2 pivot = handSprite != null ? handSprite.pivot / handSprite.rect.size : GameArt.TutorialHandTip;
                 UIFactory.Anchor(pictureRect, new Vector2(0.5f, 1f), pivot, Vector2.zero, new Vector2(width, height));
             }
             else

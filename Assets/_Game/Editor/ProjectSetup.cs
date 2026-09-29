@@ -24,7 +24,6 @@ namespace BlockPuzzle.EditorTools
         {
             if (HasTextMeshProResources)
             {
-                TmpCyrillicFontGenerator.EnsureAsset();
                 Debug.Log("[Block Puzzle] TextMeshPro resources are already present.");
                 return;
             }

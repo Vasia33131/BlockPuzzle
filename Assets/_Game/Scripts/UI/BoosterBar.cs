@@ -20,12 +20,19 @@ namespace BlockPuzzle.UI
     /// </summary>
     public class BoosterBar : MonoBehaviour
     {
-        public const float BarHeight = 160f;
+        /// <summary>Button (<see cref="IconSize"/>) plus the caption under it.</summary>
+        public const float BarHeight = 210f;
         public const float TrayGap = 36f;
-        public const float BoardGap = 10f;
+        /// <summary>Space above the bar: the stock badge sticks out ~56 above the icon and must stay off the board.</summary>
+        public const float BoardGap = 64f;
 
-        private const float IconSize = 152f;
+        private const float IconSize = 156f;
         private const float ButtonSpacing = 130f;
+        private const float CaptionFontSize = 36f;
+        private const float CaptionHeight = 44f;
+        private const float CaptionGap = 6f;
+        private const float CaptionWidth = 220f;
+        private const string CaptionName = "Caption";
         private const float BadgeFontSize = 64f;
         private const string UndoIconPath = "UI/Icons/IconUndo";
         private const string ExtraIconPath = "UI/Icons/IconExtra";
@@ -51,6 +58,9 @@ namespace BlockPuzzle.UI
         private TextMeshProUGUI undoBadge;
         private TextMeshProUGUI extraBadge;
         private TextMeshProUGUI clearBadge;
+        private TextMeshProUGUI undoCaption;
+        private TextMeshProUGUI extraCaption;
+        private TextMeshProUGUI clearCaption;
         private GridManager grid;
         private ShapeSpawner spawner;
 
@@ -248,12 +258,37 @@ namespace BlockPuzzle.UI
         {
             BoosterController boosters = gameManager != null ? gameManager.Boosters : null;
             bool playing = IsPlaying();
-            ApplyButton(undoButton, undoImage, playing && boosters != null && boosters.CanUndo);
-            ApplyButton(extraButton, extraImage, playing && boosters != null && boosters.CanExtraPiece);
-            ApplyButton(clearButton, clearImage, playing && boosters != null && boosters.CanClearLine);
+            bool canUndo = playing && boosters != null && boosters.CanUndo;
+            bool canExtra = playing && boosters != null && boosters.CanExtraPiece;
+            bool canClear = playing && boosters != null && boosters.CanClearLine;
+            ApplyButton(undoButton, undoImage, canUndo);
+            ApplyButton(extraButton, extraImage, canExtra);
+            ApplyButton(clearButton, clearImage, canClear);
             ApplyBadge(undoBadge, boosters, FreeBoosterType.Undo);
             ApplyBadge(extraBadge, boosters, FreeBoosterType.Extra);
             ApplyBadge(clearBadge, boosters, FreeBoosterType.Clear);
+            ApplyCaption(undoCaption, GameLocalization.BoosterUndo, canUndo);
+            ApplyCaption(extraCaption, GameLocalization.BoosterExtra, canExtra);
+            ApplyCaption(clearCaption, GameLocalization.BoosterClear, canClear);
+        }
+
+        private static void ApplyCaption(TextMeshProUGUI caption, string text, bool available)
+        {
+            if (caption == null)
+            {
+                return;
+            }
+
+            if (caption.text != text)
+            {
+                caption.text = text;
+            }
+
+            Color color = available ? GameTheme.TextPrimary : GameTheme.TextSecondary;
+            if (caption.color != color)
+            {
+                caption.color = color;
+            }
         }
 
         private bool IsPlaying() => gameManager != null && gameManager.State == GameState.Playing;
@@ -338,6 +373,15 @@ namespace BlockPuzzle.UI
             undoBadge = ResolveBadge(undoButton);
             extraBadge = ResolveBadge(extraButton);
             clearBadge = ResolveBadge(clearButton);
+            undoCaption = ResolveText(undoButton, CaptionName);
+            extraCaption = ResolveText(extraButton, CaptionName);
+            clearCaption = ResolveText(clearButton, CaptionName);
+        }
+
+        private static TextMeshProUGUI ResolveText(Button button, string childName)
+        {
+            Transform child = button != null ? button.transform.Find(childName) : null;
+            return child != null ? child.GetComponent<TextMeshProUGUI>() : null;
         }
 
         private static Image ResolveImage(Button button)
@@ -389,7 +433,7 @@ namespace BlockPuzzle.UI
             if (layout != null)
             {
                 layout.spacing = ButtonSpacing;
-                layout.childAlignment = TextAnchor.MiddleCenter;
+                layout.childAlignment = TextAnchor.UpperCenter;
                 layout.childControlWidth = true;
                 layout.childControlHeight = true;
                 layout.childForceExpandWidth = false;
@@ -447,6 +491,38 @@ namespace BlockPuzzle.UI
             HideChild(button.transform, "Label");
             HideChild(button.transform, "Icon");
             EnsureBadge(button);
+            EnsureCaption(button);
+            // The bar never advertises the ad: the booster question says it, on its Watch button.
+            AdChip.Remove(button);
+        }
+
+        /// <summary>Caption under the button; its text is kept current by <see cref="ApplyCaption"/>.</summary>
+        private static void EnsureCaption(Button button)
+        {
+            Transform existing = button.transform.Find(CaptionName);
+            TextMeshProUGUI caption = existing != null ? existing.GetComponent<TextMeshProUGUI>() : null;
+            if (caption == null)
+            {
+                caption = UIFactory.CreateText(
+                    CaptionName,
+                    button.transform,
+                    string.Empty,
+                    CaptionFontSize,
+                    GameTheme.TextPrimary,
+                    TextAlignmentOptions.Top,
+                    FontStyles.Bold);
+            }
+
+            caption.fontSize = CaptionFontSize;
+            caption.enableAutoSizing = false;
+            caption.overflowMode = TextOverflowModes.Overflow;
+            caption.raycastTarget = false;
+            UIFactory.Anchor(
+                caption.rectTransform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, -CaptionGap),
+                new Vector2(CaptionWidth, CaptionHeight));
         }
 
         private static TextMeshProUGUI EnsureBadge(Button button)
@@ -570,7 +646,7 @@ namespace BlockPuzzle.UI
 
             var layout = root.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = ButtonSpacing;
-            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;

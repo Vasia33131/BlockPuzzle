@@ -32,15 +32,9 @@ namespace BlockPuzzle.EditorTools
             bool missingPause = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabGenerator.PausePanelPath) == null;
             GameObject shop = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabGenerator.ShopPanelPath);
             bool missingShop = shop == null;
+            // The shop builds its own scrolling layout at runtime; a prefab still holding the old fixed cards is stale.
             bool staleShop = shop != null &&
-                ((shop.transform.Find("Card/ThemeClassicCard") == null &&
-                  shop.transform.Find("Card/ThemeDefaultCard") == null) ||
-                 shop.transform.Find("Card/ThemeOceanCard") == null ||
-                 shop.transform.Find("Card/ShapesPack1Card") == null ||
-                 shop.transform.Find("PackPreview/Card/BuyButton") == null ||
-                 shop.transform.Find("Card/NoAdsCard/Price") != null ||
-                 shop.transform.Find("Card/ThemeOceanCard/Price") != null ||
-                 shop.transform.Find("Card/ShapesPack1Card/Price") != null);
+                (shop.transform.Find("Card") == null || shop.transform.Find("Card/NoAdsCard") != null);
             if (!missingGameOver && !missingPause && !missingShop && !staleShop)
             {
                 return;

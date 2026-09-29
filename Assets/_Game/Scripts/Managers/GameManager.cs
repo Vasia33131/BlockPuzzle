@@ -498,6 +498,8 @@ namespace BlockPuzzle.Managers
             gridManager?.Feedback?.ShowClearScore(lines, points, combo);
         }
 
+        private void HandleRecordBroken(int newBest) => SfxHub.Play(SfxId.JingleNewRecord);
+
         private void HandleBoardCleared(int bonus)
         {
             gridManager?.Feedback?.ShowBoardCleared(bonus);
@@ -506,6 +508,7 @@ namespace BlockPuzzle.Managers
         /// <summary>The goal was reached: freeze the board and show the result. Nothing is saved as a run.</summary>
         private void HandleLevelWon(LevelResult result)
         {
+            SfxHub.Play(SfxId.JingleWin);
             EndLevelAttempt(GameState.LevelWon);
         }
 
@@ -538,6 +541,7 @@ namespace BlockPuzzle.Managers
             ResumeTime();
             shapeSpawner?.SetInteractable(false);
             scoreManager?.Save();
+            SfxHub.Play(SfxId.JingleGameOver);
             SetState(GameState.GameOver);
             runSaves?.ClearSavedRun();
         }
@@ -660,6 +664,8 @@ namespace BlockPuzzle.Managers
                 scoreManager.LinesCleared += HandleLinesCleared;
                 scoreManager.BoardCleared -= HandleBoardCleared;
                 scoreManager.BoardCleared += HandleBoardCleared;
+                scoreManager.RecordBroken -= HandleRecordBroken;
+                scoreManager.RecordBroken += HandleRecordBroken;
             }
 
             if (gameOverHandler != null)
@@ -680,6 +686,7 @@ namespace BlockPuzzle.Managers
             {
                 scoreManager.LinesCleared -= HandleLinesCleared;
                 scoreManager.BoardCleared -= HandleBoardCleared;
+                scoreManager.RecordBroken -= HandleRecordBroken;
             }
 
             if (gameOverHandler != null)

@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.UI;
 using BlockPuzzle.Core;
 using BlockPuzzle.Managers;
 
@@ -15,6 +16,9 @@ namespace BlockPuzzle.UI
     /// </summary>
     public class HudController : MonoBehaviour
     {
+        /// <summary>Name of the crown icon child in the record section.</summary>
+        public const string CrownName = "Crown";
+
         private static readonly Color RecordColor = GameTheme.FromHex("#FFD54A");
 
         [SerializeField] private ScoreManager scoreManager;
@@ -72,6 +76,10 @@ namespace BlockPuzzle.UI
 
             FitHudNumber(scoreValue);
             FitHudNumber(bestValue);
+            if (bestValue != null)
+            {
+                EnsureCrown(bestValue.transform.parent);
+            }
 
             SnapScore(scoreManager.Score);
         }
@@ -86,8 +94,38 @@ namespace BlockPuzzle.UI
             text.enableWordWrapping = false;
             text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = true;
-            text.fontSizeMin = 16f;
-            text.fontSizeMax = Mathf.Max(36f, text.fontSize);
+            text.fontSizeMin = Mathf.Min(text.fontSizeMin, text.fontSizeMax);
+            text.fontSizeMax = Mathf.Max(text.fontSizeMax, text.fontSize);
+        }
+
+        /// <summary>
+        /// Finds or adds the gold crown that marks the record row, and gives it its sprite.
+        /// The sprite is generated at runtime, so it is assigned here rather than baked into the scene.
+        /// </summary>
+        public static RectTransform EnsureCrown(Transform bestSection)
+        {
+            if (bestSection == null)
+            {
+                return null;
+            }
+
+            var crown = bestSection.Find(CrownName) as RectTransform;
+            Image image = crown != null ? crown.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                image = UIFactory.CreateImage(CrownName, bestSection, RecordColor, false);
+                image.preserveAspect = true;
+                image.raycastTarget = false;
+                crown = image.rectTransform;
+            }
+
+            if (Application.isPlaying)
+            {
+                image.sprite = HudIcons.Crown;
+            }
+
+            image.color = RecordColor;
+            return crown;
         }
 
         private void OnDestroy() => Unbind();
@@ -190,7 +228,8 @@ namespace BlockPuzzle.UI
             shownScore = value;
             if (scoreValue != null)
             {
-                scoreValue.text = GameLocalization.ScorePrefix + value;
+                // Bare number: the size says "score", the crown next to the record says "best".
+                scoreValue.text = value.ToString();
             }
 
             RefreshBest();
@@ -214,7 +253,7 @@ namespace BlockPuzzle.UI
                 ? Mathf.Max(scoreManager.RunStartRecord, shownScore)
                 : scoreManager.BestScore;
 
-            bestValue.text = GameLocalization.BestPrefix + best;
+            bestValue.text = best.ToString();
         }
 
         private void HandleRecordBroken(int score)

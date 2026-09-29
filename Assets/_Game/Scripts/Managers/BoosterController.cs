@@ -193,6 +193,7 @@ namespace BlockPuzzle.Managers
             grid.ClearLineAndRedraw(index, horizontal);
             undoBuffer?.RefreshSettled();
             spawner?.RefreshPlayability();
+            SfxHub.Play(SfxId.BoosterUse);
             RunChanged?.Invoke();
             gameOverHandler?.Evaluate();
             return true;
@@ -226,6 +227,7 @@ namespace BlockPuzzle.Managers
         {
             if (applied)
             {
+                SfxHub.Play(SfxId.BoosterUse);
                 RunChanged?.Invoke();
             }
 

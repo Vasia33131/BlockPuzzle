@@ -9,7 +9,7 @@ namespace BlockPuzzle.UI
 {
     /// <summary>
     /// The settings popup, opened by the gear of the main menu (<see cref="MainMenuPanel.SettingsRequested"/>)
-    /// and by the gear of the pause screen (<see cref="OpenIfAvailable"/>). It holds the sound switch,
+    /// and by the gear of the pause screen (<see cref="OpenIfAvailable"/>). It holds the music and sound effects switches,
     /// "How to play" (replays the tutorial in a fresh run), the "Our games" links and the game version.
     ///
     /// The links live here and nowhere else: never on the play field or in another popup, no calls
@@ -24,8 +24,14 @@ namespace BlockPuzzle.UI
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
         private const float CardWidth = 780f;
-        private const float SocialSize = 128f;
+        private const float SocialSize = 140f;
         private const float SocialGap = 44f;
+
+        /// <summary>Every button is at least 140 tall with 28 between them; the closing (main) one is 180.</summary>
+        private const float ButtonHeight = 140f;
+        private const float CloseHeight = 180f;
+        private const float ButtonFont = 52f;
+        private const float SmallFont = 34f;
 
         private static readonly Vector2 Half = new Vector2(0.5f, 0.5f);
 
@@ -35,6 +41,7 @@ namespace BlockPuzzle.UI
         private CanvasGroup canvasGroup;
         private RectTransform card;
         private TMP_Text titleLabel;
+        private Button musicButton;
         private Button soundButton;
         private Button howToButton;
         private Button closeButton;
@@ -98,6 +105,7 @@ namespace BlockPuzzle.UI
 
             MainMenuPanel.SettingsRequested += Open;
             GameLocalization.LanguageChanged += RefreshTexts;
+            SoundSettings.Changed += RefreshSoundLabels;
             SetVisible(false);
         }
 
@@ -120,6 +128,7 @@ namespace BlockPuzzle.UI
 
             MainMenuPanel.SettingsRequested -= Open;
             GameLocalization.LanguageChanged -= RefreshTexts;
+            SoundSettings.Changed -= RefreshSoundLabels;
         }
 
         /// <summary>A run starting or ending under the popup (How to play, an SDK pause) closes it.</summary>
@@ -146,6 +155,7 @@ namespace BlockPuzzle.UI
             GameTween.Kill(canvasGroup);
             canvasGroup.blocksRaycasts = true;
             canvasGroup.interactable = true;
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(canvasGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
 
             UpdateFitScale();
@@ -166,6 +176,7 @@ namespace BlockPuzzle.UI
             canvasGroup.interactable = false;
 
             GameTween.Kill(canvasGroup);
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(canvasGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
             GameTween.Kill(card);
             GameTween.Scale(card, Vector3.one * (cardFitScale * 0.85f), HideDuration, TweenEase.InQuad, unscaled: true);
@@ -181,17 +192,9 @@ namespace BlockPuzzle.UI
 
         // ---------------------------------------------------------------- clicks
 
-        private void HandleSoundClicked()
-        {
-            AudioManager audio = gameManager != null ? gameManager.Audio : null;
-            if (audio == null)
-            {
-                return;
-            }
+        private void HandleMusicClicked() => SoundSettings.SetMusicMuted(!SoundSettings.MusicMuted);
 
-            audio.SetMuted(!audio.IsMuted);
-            RefreshSoundLabel();
-        }
+        private void HandleSoundClicked() => SoundSettings.SetSfxMuted(!SoundSettings.SfxMuted);
 
         /// <summary>Starts a fresh run with the tutorial staged again. From the menu this replaces a saved run.</summary>
         private void HandleHowToPlayClicked()
@@ -219,7 +222,7 @@ namespace BlockPuzzle.UI
             UIFactory.SetButtonText(closeButton, GameLocalization.Close);
             UIFactory.SetText(socialCaption, GameLocalization.OurGames);
             UIFactory.SetText(versionLabel, GameLocalization.VersionLabel(Application.version));
-            RefreshSoundLabel();
+            RefreshSoundLabels();
 
             // Links are read every time: an empty URL hides its button, no URLs hide the block.
             bool telegram = SocialLinks.TelegramUrl != null;
@@ -235,11 +238,10 @@ namespace BlockPuzzle.UI
             }
         }
 
-        private void RefreshSoundLabel()
+        private void RefreshSoundLabels()
         {
-            AudioManager audio = gameManager != null ? gameManager.Audio : null;
-            bool muted = audio != null && audio.IsMuted;
-            UIFactory.SetButtonText(soundButton, muted ? GameLocalization.SoundOff : GameLocalization.SoundOn);
+            UIFactory.SetButtonText(musicButton, SoundSettings.MusicMuted ? GameLocalization.MusicOff : GameLocalization.MusicOn);
+            UIFactory.SetButtonText(soundButton, SoundSettings.SfxMuted ? GameLocalization.SoundOff : GameLocalization.SoundOn);
         }
 
         /// <summary>Shrinks the card on short (landscape) screens so it stays on screen.</summary>
@@ -274,7 +276,7 @@ namespace BlockPuzzle.UI
 
             var layout = card.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(80, 80, 44, 44);
-            layout.spacing = 26f;
+            layout.spacing = 28f;
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -291,18 +293,20 @@ namespace BlockPuzzle.UI
             SetHeight(title.rectTransform, 84f);
             titleLabel = title;
 
-            soundButton = CreateButton("SoundButton", GameLocalization.SoundOn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 36f, 110f);
-            howToButton = CreateButton("HowToPlayButton", GameLocalization.HowToPlay, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 36f, 110f);
+            musicButton = CreateButton("MusicButton", GameLocalization.MusicOn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, ButtonFont, ButtonHeight);
+            soundButton = CreateButton("SoundButton", GameLocalization.SoundOn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, ButtonFont, ButtonHeight);
+            howToButton = CreateButton("HowToPlayButton", GameLocalization.HowToPlay, GameTheme.ButtonSecondary, GameTheme.TextPrimary, ButtonFont, ButtonHeight);
 
             BuildSocialBlock();
 
             TextMeshProUGUI version = UIFactory.CreateText(
-                "Version", card, string.Empty, 26f, GameTheme.TextSecondary, TextAlignmentOptions.Center);
-            SetHeight(version.rectTransform, 36f);
+                "Version", card, string.Empty, SmallFont, GameTheme.TextSecondary, TextAlignmentOptions.Center);
+            SetHeight(version.rectTransform, 44f);
             versionLabel = version;
 
-            closeButton = CreateButton("CloseButton", GameLocalization.Close, GameTheme.ShopBuy, GameTheme.ShopBuyLabel, 40f, 110f);
+            closeButton = CreateButton("CloseButton", GameLocalization.Close, GameTheme.ShopBuy, GameTheme.ShopBuyLabel, ButtonFont, CloseHeight);
 
+            musicButton.onClick.AddListener(HandleMusicClicked);
             soundButton.onClick.AddListener(HandleSoundClicked);
             howToButton.onClick.AddListener(HandleHowToPlayClicked);
             closeButton.onClick.AddListener(Hide);
@@ -323,7 +327,7 @@ namespace BlockPuzzle.UI
             column.childForceExpandHeight = false;
 
             TextMeshProUGUI caption = UIFactory.CreateText(
-                "Caption", socialBlock, GameLocalization.OurGames, 32f, GameTheme.TextSecondary,
+                "Caption", socialBlock, GameLocalization.OurGames, SmallFont, GameTheme.TextSecondary,
                 TextAlignmentOptions.Center, FontStyles.Bold);
             SetHeight(caption.rectTransform, 44f);
             socialCaption = caption;
@@ -342,7 +346,7 @@ namespace BlockPuzzle.UI
             SetSize(telegramButton.transform, SocialSize, SocialSize);
             telegramButton.onClick.AddListener(HandleTelegramClicked);
 
-            float youTubeHeight = SocialSize * 0.8f;
+            float youTubeHeight = SocialSize;
             youTubeButton = SocialIcons.CreateYouTube(row, youTubeHeight);
             SetSize(youTubeButton.transform, SocialSize * 1.25f, youTubeHeight);
             youTubeButton.onClick.AddListener(HandleYouTubeClicked);

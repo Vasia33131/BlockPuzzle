@@ -46,7 +46,6 @@ namespace BlockPuzzle.EditorTools
             PatternSpriteGenerator.EnsureAssets();
             ThemeConfigGenerator.EnsureAssets();
             ShapeLibraryGenerator.EnsureAsset();
-            TmpCyrillicFontGenerator.EnsureAsset();
             PrefabGenerator.EnsureGridCell();
             PrefabGenerator.EnsureBlockPiece();
             ConfigureBoosterIcons();

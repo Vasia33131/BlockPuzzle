@@ -167,7 +167,7 @@ namespace BlockPuzzle.UI
 
             float topReserved = ResolveTopReservedHeight();
             float boosterReserved = boosterBar != null
-                ? BoosterBar.BarHeight + BoosterBar.TrayGap
+                ? BoosterBar.BarHeight + BoosterBar.TrayGap + BoosterBar.BoardGap
                 : 0f;
             float spawnReserved = SpawnBottomPadding + bannerReserve + spawnHeight;
             float availableHeight = safeHeight - topReserved - spawnReserved - boosterReserved - SectionGap * 2f;

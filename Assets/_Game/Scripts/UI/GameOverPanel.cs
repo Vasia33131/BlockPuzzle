@@ -12,9 +12,12 @@ namespace BlockPuzzle.UI
     /// Overlay shown when no move is left. Waits a moment so the player sees the jammed
     /// board, then pops a card that pushes toward one more run: the distance to the record
     /// with a progress bar, or a "new best" celebration with confetti. Buttons are ranked:
-    /// the rewarded continue (once per run) is the brightest, "play again" is large, the
-    /// optional Yandex sign-in prompt is secondary. Platform code toggles the sign-in prompt
-    /// and listens to <see cref="ContinueRequested"/> without a YG dependency here.
+    /// the rewarded continue (once per run) is one big pulsing green button that names the
+    /// ad outright, "start over" is an outlined button that fades in a moment later, "menu"
+    /// is plain text and the optional Yandex sign-in prompt is a single compact row. Once the
+    /// continue is gone, "start over" takes over the big green look. Platform code toggles the
+    /// sign-in prompt and listens to <see cref="ContinueRequested"/> and
+    /// <see cref="RestartClicked"/> without a YG dependency here.
     /// </summary>
     public class GameOverPanel : MonoBehaviour
     {
@@ -23,20 +26,49 @@ namespace BlockPuzzle.UI
         private const float ShowDuration = 0.3f;
         private const float CountDuration = 0.8f;
         private const float RecordCountDuration = 1.2f;
+        /// <summary>The secondary "start over" shows up this long after the card, so the eye lands on continue first.</summary>
+        private const float RestartRevealDelay = 0.6f;
+        private const float RestartFadeDuration = 0.25f;
 
-        private const float CardWidth = 840f;
+        /// <summary>Portrait card takes this share of the panel width; landscape is capped at <see cref="LandscapeCardMaxWidth"/>.</summary>
+        private const float PortraitCardShare = 0.9f;
+        private const float LandscapeCardMaxWidth = 900f;
+        private const float FallbackCardWidth = 900f;
+        private const float SidePadding = 40f;
         /// <summary>Title, score, the record / progress slot and the coins line, measured from the card top.</summary>
-        private const float TopBlockHeight = 556f;
+        private const float TopBlockHeight = 590f;
         private const float BottomPadding = 32f;
         private const float TopPaddingBelowButtons = 28f;
+        private const float ButtonGap = 28f;
 
-        private static readonly Vector2 ContinueSize = new Vector2(640f, 140f);
-        private static readonly Vector2 RestartSize = new Vector2(600f, 120f);
-        private static readonly Vector2 HomeSize = new Vector2(440f, 84f);
-        private static readonly Vector2 AuthButtonSize = new Vector2(440f, 80f);
-        private static readonly Vector2 AuthHintSize = new Vector2(720f, 64f);
-        private static readonly Vector2 ProgressTrackSize = new Vector2(600f, 26f);
+        private const float PrimaryHeight = 200f;
+        private const float RestartOutlineHeight = 150f;
+        private const float HomeHeight = 140f;
+        private const float HomeWidth = 520f;
+        private const float AuthRowHeight = 140f;
+        private const float AuthButtonWidth = 300f;
+        private const float AuthHintGap = 24f;
+        private const float OutlineThickness = 5f;
+        private const float IconDiameter = 112f;
+        private const float IconLeft = 40f;
+        private const float IconTextGap = 32f;
+        private const float ContentRightPadding = 36f;
+        private const float GlowMargin = 28f;
+
+        private const float PulseSpeed = 2.6f;
+        private const float PulseScale = 1.04f;
+        private const float SheenPeriod = 3.4f;
+        private const float SheenSweepShare = 0.3f;
+        private const float SheenBandWidth = 170f;
+        /// <summary>Keeps the clipped shine inside the rounded corners of the gradient sprite.</summary>
+        private const float SheenInset = 12f;
+
+        private const float ProgressTrackHeight = 26f;
+        private const float ProgressTrackMaxWidth = 600f;
         private static readonly Color DarkLabel = GameTheme.FromHex("#1a1a2e");
+
+        private static Sprite gradientSprite;
+        private static Sprite sheenSprite;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -57,13 +89,23 @@ namespace BlockPuzzle.UI
         private RectTransform progressFill;
         private Image continueGlow;
         private ConfettiBurst confetti;
+        private RectTransform continueSheen;
+        private RectTransform restartSheen;
+        private ButtonPressAnimator continuePress;
+        private ButtonPressAnimator restartPress;
+        private CanvasGroup restartGroup;
 
         private readonly object revealKey = new object();
+        private readonly object restartKey = new object();
         private Coroutine countRoutine;
         private bool authPromptVisible;
         private bool continueButtonVisible;
+        private bool highlightVisible;
         private bool revealed;
         private float cardFitScale = 1f;
+        private float cardWidth = FallbackCardWidth;
+        private float progressTrackWidth = ProgressTrackMaxWidth;
+        private Vector2 laidOutArea;
 
         private int shownScore;
         private int shownBest;
@@ -75,6 +117,12 @@ namespace BlockPuzzle.UI
 
         /// <summary>Raised when the player taps continue. Platform code shows the rewarded ad.</summary>
         public event Action ContinueRequested;
+
+        /// <summary>Raised when the player taps start over; the argument says whether continue was on offer.</summary>
+        public event Action<bool> RestartClicked;
+
+        /// <summary>The button that carries the screen: continue while it is on offer, start over after that.</summary>
+        private Button PrimaryButton => continueButtonVisible ? continueButton : restartButton;
 
         private void Awake()
         {
@@ -172,7 +220,7 @@ namespace BlockPuzzle.UI
         }
 
         /// <summary>
-        /// Shows or hides the authorization button and its explanation.
+        /// Shows or hides the authorization row (hint and sign-in button).
         /// Platform code calls this when the player is not authorized on Yandex Games.
         /// </summary>
         public void SetAuthPromptVisible(bool visible)
@@ -241,11 +289,6 @@ namespace BlockPuzzle.UI
             if (recordBadge != null)
             {
                 recordBadge.text = GameLocalization.NewBest;
-            }
-
-            if (authHint != null)
-            {
-                authHint.text = GameLocalization.AuthHint;
             }
 
             StyleButtons();
@@ -342,8 +385,58 @@ namespace BlockPuzzle.UI
             UpdateProgress(0);
             RefreshCoins();
             RefreshContinueButton();
+            RevealRestart();
             revealed = true;
             AnimateIn(StartCountUp);
+        }
+
+        /// <summary>
+        /// With the continue on offer, "start over" fades in after <see cref="RestartRevealDelay"/> and cannot be
+        /// tapped before that; without it, "start over" is the main button and is there at once.
+        /// </summary>
+        private void RevealRestart()
+        {
+            if (restartButton == null)
+            {
+                return;
+            }
+
+            GameTween.Kill(restartKey);
+            if (restartGroup == null)
+            {
+                restartGroup = restartButton.GetComponent<CanvasGroup>();
+                if (restartGroup == null)
+                {
+                    restartGroup = restartButton.gameObject.AddComponent<CanvasGroup>();
+                }
+            }
+
+            GameTween.Kill(restartGroup);
+            if (!continueButtonVisible)
+            {
+                SetRestartInteractable(1f, true);
+                return;
+            }
+
+            SetRestartInteractable(0f, false);
+            GameTween.Delay(restartKey, RestartRevealDelay, true, () =>
+            {
+                if (restartGroup == null)
+                {
+                    return;
+                }
+
+                restartGroup.blocksRaycasts = true;
+                restartGroup.interactable = true;
+                GameTween.Fade(restartGroup, 1f, RestartFadeDuration, TweenEase.OutQuad, unscaled: true);
+            });
+        }
+
+        private void SetRestartInteractable(float alpha, bool interactable)
+        {
+            restartGroup.alpha = alpha;
+            restartGroup.blocksRaycasts = interactable;
+            restartGroup.interactable = interactable;
         }
 
         /// <summary>Coins this run paid out (a continued run shows only the new part).</summary>
@@ -362,6 +455,7 @@ namespace BlockPuzzle.UI
 
         private void HandleRestartClicked()
         {
+            RestartClicked?.Invoke(continueButtonVisible);
             gameManager?.RestartGame();
         }
 
@@ -380,6 +474,13 @@ namespace BlockPuzzle.UI
         private void Hide()
         {
             GameTween.Kill(revealKey);
+            GameTween.Kill(restartKey);
+            if (restartGroup != null)
+            {
+                GameTween.Kill(restartGroup);
+                SetRestartInteractable(1f, true);
+            }
+
             revealed = false;
             StopCountUp();
             if (confetti != null)
@@ -568,25 +669,69 @@ namespace BlockPuzzle.UI
                 progressFill.anchorMax = new Vector2(ratio, 1f);
                 progressFill.offsetMin = Vector2.zero;
                 // A rounded fill narrower than it is tall looks broken, so it never gets thinner than a dot.
-                float minWidth = ProgressTrackSize.y - ratio * ProgressTrackSize.x;
+                float minWidth = ProgressTrackHeight - ratio * progressTrackWidth;
                 progressFill.offsetMax = new Vector2(Mathf.Max(0f, minWidth), 0f);
                 progressFill.gameObject.SetActive(ratio > 0f);
             }
         }
 
-        /// <summary>Gentle breathing glow behind the continue button to draw the eye to it.</summary>
+        /// <summary>
+        /// Keeps the layout in step with the screen (rotation), and animates the main button:
+        /// a soft scale pulse, a breathing glow behind it and a shine that sweeps across.
+        /// </summary>
         private void Update()
         {
-            if (!revealed || !continueButtonVisible || continueGlow == null)
+            if (!revealed)
             {
                 return;
             }
 
-            float wave = Mathf.Sin(Time.unscaledTime * 4f) * 0.5f + 0.5f;
-            Color color = GameTheme.ShopBuy;
-            color.a = Mathf.Lerp(0.15f, 0.45f, wave);
-            continueGlow.color = color;
-            continueGlow.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, 1.05f, wave);
+            Vector2 areaSize = ((RectTransform)transform).rect.size;
+            if ((areaSize - laidOutArea).sqrMagnitude > 0.25f)
+            {
+                ApplyLayout();
+            }
+
+            Button primary = PrimaryButton;
+            if (primary == null)
+            {
+                return;
+            }
+
+            float wave = Mathf.Sin(Time.unscaledTime * PulseSpeed) * 0.5f + 0.5f;
+            ButtonPressAnimator press = primary == continueButton ? continuePress : restartPress;
+            if (press != null)
+            {
+                press.SetRestScale(Vector3.one * Mathf.Lerp(1f, PulseScale, wave));
+            }
+
+            if (continueGlow != null && highlightVisible)
+            {
+                Color color = GameTheme.ShopBuy;
+                color.a = Mathf.Lerp(0.15f, 0.45f, wave);
+                continueGlow.color = color;
+                continueGlow.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, PulseScale, wave);
+            }
+
+            RectTransform band = primary == continueButton ? continueSheen : restartSheen;
+            if (band != null)
+            {
+                AnimateSheen(band, ((RectTransform)primary.transform).rect.width);
+            }
+        }
+
+        /// <summary>One diagonal shine crosses the button, then it rests until the next period.</summary>
+        private static void AnimateSheen(RectTransform band, float buttonWidth)
+        {
+            float span = buttonWidth * 0.5f + SheenBandWidth;
+            float t = Mathf.Repeat(Time.unscaledTime, SheenPeriod) / SheenPeriod;
+            float x = span * 2f;
+            if (t < SheenSweepShare)
+            {
+                x = Mathf.Lerp(-span, span, Mathf.SmoothStep(0f, 1f, t / SheenSweepShare));
+            }
+
+            band.anchoredPosition = new Vector2(x, 0f);
         }
 
         private void ResolveCard()
@@ -608,12 +753,14 @@ namespace BlockPuzzle.UI
                 && boosters.CanContinue;
 
             continueButtonVisible = show;
+            highlightVisible = gameManager != null && gameManager.State == GameState.GameOver;
             if (continueButton != null)
             {
                 continueButton.gameObject.SetActive(show);
             }
 
-            SetActive(continueGlow, show);
+            SetActive(continueGlow, highlightVisible);
+            StyleButtons();
             ApplyLayout();
         }
 
@@ -657,7 +804,7 @@ namespace BlockPuzzle.UI
             if (homeButton == null)
             {
                 homeButton = UIFactory.CreateButton(
-                    "HomeButton", card, GameLocalization.Home, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 32f);
+                    "HomeButton", card, GameLocalization.GameOverMenu, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 52f);
             }
 
             if (authHint == null)
@@ -668,7 +815,7 @@ namespace BlockPuzzle.UI
             if (authHint == null)
             {
                 TextMeshProUGUI hint = UIFactory.CreateText(
-                    "AuthHint", card, GameLocalization.AuthHint, 26f, GameTheme.TextSecondary);
+                    "AuthHint", card, GameLocalization.GameOverAuthHint, 34f, GameTheme.TextSecondary);
                 hint.enableWordWrapping = true;
                 authHint = hint;
             }
@@ -681,7 +828,7 @@ namespace BlockPuzzle.UI
             if (authButton == null)
             {
                 authButton = UIFactory.CreateButton(
-                    "AuthButton", card, GameLocalization.SignIn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 28f);
+                    "AuthButton", card, GameLocalization.SignInShort, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 52f);
             }
 
             if (continueButton == null)
@@ -692,7 +839,17 @@ namespace BlockPuzzle.UI
             if (continueButton == null)
             {
                 continueButton = UIFactory.CreateButton(
-                    "ContinueButton", card, GameLocalization.ContinueAd, GameTheme.ShopBuy, DarkLabel, 40f);
+                    "ContinueButton", card, GameLocalization.GameOverContinue, GameTheme.ShopBuy, DarkLabel, 60f);
+            }
+
+            if (restartButton != null && restartPress == null)
+            {
+                restartPress = ButtonPressAnimator.Attach(restartButton);
+            }
+
+            if (continuePress == null)
+            {
+                continuePress = ButtonPressAnimator.Attach(continueButton);
             }
 
             if (continueGlow == null)
@@ -707,13 +864,6 @@ namespace BlockPuzzle.UI
                 continueGlow.gameObject.SetActive(false);
             }
 
-            // The glow sits right behind the button it highlights.
-            int buttonIndex = continueButton.transform.GetSiblingIndex();
-            if (continueGlow.transform.GetSiblingIndex() > buttonIndex)
-            {
-                continueGlow.transform.SetSiblingIndex(buttonIndex);
-            }
-
             if (progressLabel == null)
             {
                 progressLabel = card.Find("ProgressLabel")?.GetComponent<TMP_Text>();
@@ -722,7 +872,7 @@ namespace BlockPuzzle.UI
             if (progressLabel == null)
             {
                 progressLabel = UIFactory.CreateText(
-                    "ProgressLabel", card, string.Empty, 40f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
+                    "ProgressLabel", card, string.Empty, 42f, GameTheme.TextPrimary, TextAlignmentOptions.Center, FontStyles.Bold);
                 progressLabel.gameObject.SetActive(false);
             }
 
@@ -734,7 +884,7 @@ namespace BlockPuzzle.UI
             if (coinsLabel == null)
             {
                 coinsLabel = UIFactory.CreateText(
-                    "CoinsLabel", card, string.Empty, 38f, MetaUi.CoinGold, TextAlignmentOptions.Center, FontStyles.Bold);
+                    "CoinsLabel", card, string.Empty, 42f, MetaUi.CoinGold, TextAlignmentOptions.Center, FontStyles.Bold);
                 coinsLabel.gameObject.SetActive(false);
             }
 
@@ -775,11 +925,23 @@ namespace BlockPuzzle.UI
             ApplyLayout();
         }
 
+        // ---------------------------------------------------------------- styling
+
         private void StyleButtons()
         {
-            StyleButton(restartButton, GameLocalization.PlayAgain, GameTheme.Accent, DarkLabel, 46f);
-            StyleButton(homeButton, GameLocalization.Home, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 32f);
-            StyleButton(authButton, GameLocalization.SignIn, GameTheme.ButtonSecondary, GameTheme.TextPrimary, 28f);
+            if (continuePress != null)
+            {
+                continuePress.SetRestScale(Vector3.one);
+            }
+
+            if (restartPress != null)
+            {
+                restartPress.SetRestScale(Vector3.one);
+            }
+
+            StyleRestartButton();
+            StyleHomeButton();
+            StyleAuthRow();
             StyleContinueButton();
 
             Image fill = progressFill != null ? progressFill.GetComponent<Image>() : null;
@@ -789,34 +951,74 @@ namespace BlockPuzzle.UI
             }
         }
 
-        private static void StyleButton(Button button, string caption, Color background, Color labelColor, float fontSize)
+        /// <summary>Big green button while it is the only way forward, outlined and quieter next to the continue.</summary>
+        private void StyleRestartButton()
         {
-            if (button == null)
+            if (restartButton == null)
             {
                 return;
             }
 
-            if (button.targetGraphic != null)
+            TMP_Text label = FindLabel(restartButton);
+            if (continueButtonVisible)
             {
-                button.targetGraphic.color = background;
+                ApplyOutlineLook(restartButton);
+                SetLabel(label, GameLocalization.GameOverRestart, GameTheme.TextPrimary, 52f, FontRole.Heading);
             }
-
-            TMP_Text label = button.transform.Find("Label")?.GetComponent<TMP_Text>();
-            if (label == null)
+            else
             {
-                label = button.GetComponentInChildren<TMP_Text>(true);
-            }
-
-            if (label != null)
-            {
-                label.text = caption;
-                label.color = labelColor;
-                label.fontSize = fontSize;
-                GameFonts.Apply(label, FontRole.Heading);
+                restartSheen = ApplyPrimaryLook(restartButton);
+                SetLabel(label, GameLocalization.GameOverRestart, DarkLabel, 60f, FontRole.Heading);
             }
         }
 
-        /// <summary>Bright two-line button: the action on top, what the ad gives underneath.</summary>
+        /// <summary>A text-only button: invisible background, a full 140-unit tap zone.</summary>
+        private void StyleHomeButton()
+        {
+            if (homeButton == null)
+            {
+                return;
+            }
+
+            if (homeButton.targetGraphic != null)
+            {
+                homeButton.targetGraphic.color = new Color(0f, 0f, 0f, 0f);
+            }
+
+            SetLabel(
+                FindLabel(homeButton),
+                GameLocalization.GameOverMenu,
+                GameTheme.WithAlpha(GameTheme.TextPrimary, 0.85f),
+                52f,
+                FontRole.Heading);
+        }
+
+        private void StyleAuthRow()
+        {
+            if (authButton != null)
+            {
+                if (authButton.targetGraphic != null)
+                {
+                    authButton.targetGraphic.color = GameTheme.ButtonSecondary;
+                }
+
+                SetLabel(
+                    FindLabel(authButton), GameLocalization.SignInShort, GameTheme.TextPrimary, 52f, FontRole.Heading);
+            }
+
+            if (authHint != null)
+            {
+                authHint.text = GameLocalization.GameOverAuthHint;
+                authHint.color = GameTheme.TextSecondary;
+                authHint.fontSize = 34f;
+                authHint.enableAutoSizing = false;
+                authHint.enableWordWrapping = true;
+                authHint.alignment = TextAlignmentOptions.MidlineLeft;
+                GameFonts.Apply(authHint, FontRole.Body);
+            }
+        }
+
+        /// <summary>The main button: play icon, the action, and a caption that says an ad is coming.</summary>
         private void StyleContinueButton()
         {
             if (continueButton == null)
@@ -824,46 +1026,204 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            StyleButton(continueButton, GameLocalization.ContinueAd, GameTheme.ShopBuy, DarkLabel, 40f);
+            continueSheen = ApplyPrimaryLook(continueButton);
 
-            TMP_Text label = continueButton.transform.Find("Label")?.GetComponent<TMP_Text>();
-            if (label == null)
-            {
-                label = continueButton.GetComponentInChildren<TMP_Text>(true);
-            }
-
+            TMP_Text label = FindLabel(continueButton);
+            SetLabel(label, GameLocalization.GameOverContinue, DarkLabel, 60f, FontRole.Heading);
             if (label != null)
             {
-                UIFactory.Anchor(
-                    label.rectTransform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0f, 20f),
-                    new Vector2(ContinueSize.x - 20f, 52f));
+                label.alignment = TextAlignmentOptions.MidlineLeft;
             }
 
             Transform hintTransform = continueButton.transform.Find("Hint");
             TMP_Text hint = hintTransform != null ? hintTransform.GetComponent<TMP_Text>() : null;
             if (hint == null)
             {
-                hint = UIFactory.CreateText("Hint", continueButton.transform, string.Empty, 26f, DarkLabel);
+                hint = UIFactory.CreateText("Hint", continueButton.transform, string.Empty, 36f, DarkLabel);
             }
 
-            hint.text = GameLocalization.ContinueHint;
-            hint.fontSize = 26f;
+            hint.text = GameLocalization.GameOverContinueCaption;
+            hint.enableAutoSizing = false;
+            hint.enableWordWrapping = true;
+            hint.fontSize = 36f;
             hint.fontStyle = FontStyles.Normal;
-            hint.color = GameTheme.WithAlpha(DarkLabel, 0.75f);
-            UIFactory.Anchor(
-                hint.rectTransform,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0f, -28f),
-                new Vector2(ContinueSize.x - 20f, 36f));
+            hint.color = GameTheme.WithAlpha(DarkLabel, 0.9f);
+            hint.alignment = TextAlignmentOptions.MidlineLeft;
+            hint.raycastTarget = false;
+            GameFonts.Apply(hint, FontRole.Body);
+
+            EnsureContinueIcon();
         }
+
+        /// <summary>Gradient sprite, shine and no outline. Returns the shine band, or null outside play mode.</summary>
+        private static RectTransform ApplyPrimaryLook(Button button)
+        {
+            Image image = button.targetGraphic as Image;
+            if (image == null)
+            {
+                return null;
+            }
+
+            SetOutlineFillActive(button, false);
+            if (!Application.isPlaying)
+            {
+                // The baked sprites are runtime-only, so a prefab bake just gets the flat colour.
+                image.color = GameTheme.ShopBuy;
+                return null;
+            }
+
+            image.sprite = GradientSprite;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 1f;
+            image.color = Color.white;
+            return EnsureSheen(button);
+        }
+
+        /// <summary>Muted ring around a card-coloured fill: the "not now" look.</summary>
+        private static void ApplyOutlineLook(Button button)
+        {
+            Image image = button.targetGraphic as Image;
+            if (image == null)
+            {
+                return;
+            }
+
+            if (UIFactory.RoundedSprite != null)
+            {
+                image.sprite = UIFactory.RoundedSprite;
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = 1f;
+            }
+
+            image.color = Color.Lerp(GameTheme.TextSecondary, Color.white, 0.15f);
+            Transform sheen = button.transform.Find("Sheen");
+            if (sheen != null)
+            {
+                sheen.gameObject.SetActive(false);
+            }
+
+            Transform existing = button.transform.Find("Fill");
+            Image fill = existing != null ? existing.GetComponent<Image>() : null;
+            if (fill == null)
+            {
+                fill = UIFactory.CreateImage("Fill", button.transform, GameTheme.CardBackground);
+                fill.raycastTarget = false;
+                fill.transform.SetAsFirstSibling();
+            }
+
+            fill.color = GameTheme.CardBackground;
+            UIFactory.Stretch(fill.rectTransform, OutlineThickness);
+            fill.gameObject.SetActive(true);
+        }
+
+        private static void SetOutlineFillActive(Button button, bool active)
+        {
+            Transform fill = button.transform.Find("Fill");
+            if (fill != null)
+            {
+                fill.gameObject.SetActive(active);
+            }
+        }
+
+        /// <summary>Clipped container with a slanted, soft-edged band that <see cref="AnimateSheen"/> slides across.</summary>
+        private static RectTransform EnsureSheen(Button button)
+        {
+            Transform container = button.transform.Find("Sheen");
+            if (container == null)
+            {
+                RectTransform rect = UIFactory.CreateRect("Sheen", button.transform);
+                UIFactory.Stretch(rect, SheenInset);
+                rect.gameObject.AddComponent<RectMask2D>();
+                rect.SetAsFirstSibling();
+                container = rect;
+            }
+
+            container.gameObject.SetActive(true);
+
+            Transform existing = container.Find("Band");
+            Image band = existing != null ? existing.GetComponent<Image>() : null;
+            if (band == null)
+            {
+                band = UIFactory.CreateImage("Band", container, Color.white, false);
+                band.raycastTarget = false;
+                UIFactory.Anchor(
+                    band.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0f, 0f),
+                    new Vector2(SheenBandWidth, 640f));
+                band.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -18f);
+            }
+
+            band.sprite = SheenSprite;
+            return band.rectTransform;
+        }
+
+        /// <summary>Dark disc with a play triangle on the left of the continue button.</summary>
+        private void EnsureContinueIcon()
+        {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            Transform existing = continueButton.transform.Find("Icon");
+            Image disc = existing != null ? existing.GetComponent<Image>() : null;
+            if (disc == null)
+            {
+                disc = UIFactory.CreateImage("Icon", continueButton.transform, DarkLabel, false);
+                disc.raycastTarget = false;
+
+                Image play = UIFactory.CreateImage("Play", disc.transform, Color.white, false);
+                play.raycastTarget = false;
+                UIFactory.Anchor(
+                    play.rectTransform,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(4f, 0f),
+                    new Vector2(IconDiameter * 0.5f, IconDiameter * 0.5f));
+            }
+
+            disc.sprite = HudIcons.Dot;
+            disc.color = DarkLabel;
+            Transform playTransform = disc.transform.Find("Play");
+            Image playImage = playTransform != null ? playTransform.GetComponent<Image>() : null;
+            if (playImage != null)
+            {
+                playImage.sprite = HudIcons.Play;
+                playImage.color = Color.white;
+            }
+        }
+
+        private static TMP_Text FindLabel(Button button)
+        {
+            TMP_Text label = button.transform.Find("Label")?.GetComponent<TMP_Text>();
+            return label != null ? label : button.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        /// <summary>A caption at <paramref name="size"/>; a long translation may shrink to 80% instead of spilling out.</summary>
+        private static void SetLabel(TMP_Text label, string text, Color color, float size, FontRole role)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.text = text;
+            label.color = color;
+            GameFonts.Apply(label, role);
+            label.enableWordWrapping = false;
+            label.enableAutoSizing = true;
+            label.fontSizeMax = size;
+            label.fontSizeMin = size * 0.8f;
+            label.fontSize = size;
+        }
+
+        // ---------------------------------------------------------------- layout
 
         /// <summary>
         /// Positions every element. The top block is fixed; the button stack grows from the
-        /// bottom (sign-in, play again, continue) and the card height follows it.
+        /// bottom (sign-in row, menu, start over, continue) and the card height follows it.
         /// </summary>
         private void ApplyLayout()
         {
@@ -873,53 +1233,156 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            PlaceTop(card.Find("Title"), -56f, new Vector2(800f, 100f), 76f);
-            PlaceTop(card.Find("ScoreCaption"), -170f, new Vector2(800f, 44f), 34f);
-            PlaceTop(finalScoreValue != null ? finalScoreValue.transform : null, -212f, new Vector2(800f, 120f), 112f);
-            PlaceTop(recordBadge != null ? recordBadge.transform : null, -350f, new Vector2(800f, 76f), 60f);
-            PlaceTop(progressLabel != null ? progressLabel.transform : null, -345f, new Vector2(800f, 52f), 40f);
-            PlaceTop(progressTrack != null ? progressTrack.transform : null, -407f, ProgressTrackSize, 0f);
-            PlaceTop(bestScoreValue != null ? bestScoreValue.transform : null, -443f, new Vector2(800f, 44f), 30f);
-            PlaceTop(coinsLabel != null ? coinsLabel.transform : null, -494f, new Vector2(800f, 50f), 38f);
+            Rect area = ((RectTransform)transform).rect;
+            laidOutArea = area.size;
+            cardWidth = ResolveCardWidth(area);
+            float inner = cardWidth - SidePadding * 2f;
+            progressTrackWidth = Mathf.Min(ProgressTrackMaxWidth, inner);
+
+            Transform title = card.Find("Title");
+            PlaceTop(title, -48f, new Vector2(inner, 110f), 96f);
+            if (title != null)
+            {
+                UIFactory.FitText(title.GetComponent<TMP_Text>(), 0.6f);
+            }
+
+            PlaceTop(card.Find("ScoreCaption"), -166f, new Vector2(inner, 44f), 34f);
+            PlaceTop(finalScoreValue != null ? finalScoreValue.transform : null, -206f, new Vector2(inner, 160f), 140f);
+            PlaceTop(recordBadge != null ? recordBadge.transform : null, -372f, new Vector2(inner, 76f), 60f);
+            PlaceTop(progressLabel != null ? progressLabel.transform : null, -374f, new Vector2(inner, 56f), 42f);
+            PlaceTop(
+                progressTrack != null ? progressTrack.transform : null,
+                -440f,
+                new Vector2(progressTrackWidth, ProgressTrackHeight),
+                0f);
+            PlaceTop(bestScoreValue != null ? bestScoreValue.transform : null, -478f, new Vector2(inner, 44f), 34f);
+            PlaceTop(coinsLabel != null ? coinsLabel.transform : null, -530f, new Vector2(inner, 54f), 42f);
             if (bestScoreValue != null)
             {
                 bestScoreValue.color = GameTheme.TextSecondary;
             }
 
             float y = BottomPadding;
-            PlaceBottom(homeButton != null ? homeButton.transform : null, y, HomeSize);
-            y += HomeSize.y + 14f;
-
             if (authPromptVisible)
             {
-                PlaceBottom(authButton != null ? authButton.transform : null, y, AuthButtonSize);
-                y += AuthButtonSize.y + 6f;
-                PlaceBottom(authHint != null ? authHint.transform : null, y, AuthHintSize);
-                y += AuthHintSize.y + 14f;
+                PlaceAuthRow(y, inner);
+                y += AuthRowHeight + ButtonGap;
             }
 
-            PlaceBottom(restartButton != null ? restartButton.transform : null, y, RestartSize);
-            y += RestartSize.y;
+            PlaceBottom(homeButton != null ? homeButton.transform : null, y, new Vector2(HomeWidth, HomeHeight));
+            y += HomeHeight + ButtonGap;
+
+            float restartHeight = continueButtonVisible ? RestartOutlineHeight : PrimaryHeight;
+            PlaceBottom(restartButton != null ? restartButton.transform : null, y, new Vector2(inner, restartHeight));
+            float primaryY = y;
+            float primaryHeight = restartHeight;
+            y += restartHeight;
 
             if (continueButtonVisible)
             {
-                y += 26f;
-                PlaceBottom(continueButton != null ? continueButton.transform : null, y, ContinueSize);
-                if (continueGlow != null)
-                {
-                    RectTransform glow = continueGlow.rectTransform;
-                    UIFactory.Anchor(
-                        glow, new Vector2(0.5f, 0f), new Vector2(0.5f, 0.5f),
-                        new Vector2(0f, y + ContinueSize.y * 0.5f),
-                        ContinueSize + new Vector2(28f, 28f));
-                }
-
-                y += ContinueSize.y;
+                y += ButtonGap;
+                PlaceBottom(continueButton != null ? continueButton.transform : null, y, new Vector2(inner, PrimaryHeight));
+                LayoutContinueContents(inner);
+                primaryY = y;
+                primaryHeight = PrimaryHeight;
+                y += PrimaryHeight;
             }
 
+            PlaceGlow(primaryY, primaryHeight, inner);
+
             float height = TopBlockHeight + y + TopPaddingBelowButtons;
-            card.sizeDelta = new Vector2(CardWidth, height);
+            card.sizeDelta = new Vector2(cardWidth, height);
             UpdateFitScale(height);
+        }
+
+        /// <summary>Portrait: 90% of the panel. Landscape: the same share, but never wider than 900.</summary>
+        private static float ResolveCardWidth(Rect area)
+        {
+            if (area.width < 2f || area.height < 2f)
+            {
+                return FallbackCardWidth;
+            }
+
+            float width = area.width * PortraitCardShare;
+            return area.width > area.height ? Mathf.Min(LandscapeCardMaxWidth, width) : width;
+        }
+
+        /// <summary>Hint on the left, sign-in button on the right, both as tall as the row.</summary>
+        private void PlaceAuthRow(float y, float inner)
+        {
+            if (authButton != null)
+            {
+                UIFactory.Anchor(
+                    (RectTransform)authButton.transform,
+                    new Vector2(1f, 0f),
+                    new Vector2(1f, 0f),
+                    new Vector2(-SidePadding, y),
+                    new Vector2(AuthButtonWidth, AuthRowHeight));
+            }
+
+            if (authHint != null)
+            {
+                UIFactory.Anchor(
+                    authHint.rectTransform,
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, 0f),
+                    new Vector2(SidePadding, y),
+                    new Vector2(inner - AuthButtonWidth - AuthHintGap, AuthRowHeight));
+            }
+        }
+
+        /// <summary>Icon on the left, the action above the caption on the right.</summary>
+        private void LayoutContinueContents(float width)
+        {
+            if (continueButton == null)
+            {
+                return;
+            }
+
+            float textLeft = IconLeft + IconDiameter + IconTextGap;
+            float textWidth = width - textLeft - ContentRightPadding;
+            Vector2 leftMiddle = new Vector2(0f, 0.5f);
+
+            TMP_Text label = FindLabel(continueButton);
+            if (label != null)
+            {
+                UIFactory.Anchor(label.rectTransform, leftMiddle, leftMiddle, new Vector2(textLeft, 34f), new Vector2(textWidth, 72f));
+            }
+
+            Transform hint = continueButton.transform.Find("Hint");
+            if (hint != null)
+            {
+                UIFactory.Anchor((RectTransform)hint, leftMiddle, leftMiddle, new Vector2(textLeft, -44f), new Vector2(textWidth, 84f));
+            }
+
+            Transform icon = continueButton.transform.Find("Icon");
+            if (icon != null)
+            {
+                UIFactory.Anchor(
+                    (RectTransform)icon, leftMiddle, leftMiddle, new Vector2(IconLeft, 0f), new Vector2(IconDiameter, IconDiameter));
+            }
+        }
+
+        /// <summary>The glow sits right behind whichever button currently carries the screen.</summary>
+        private void PlaceGlow(float primaryY, float primaryHeight, float primaryWidth)
+        {
+            Button primary = PrimaryButton;
+            if (continueGlow == null || primary == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                continueGlow.rectTransform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, primaryY + primaryHeight * 0.5f),
+                new Vector2(primaryWidth + GlowMargin, primaryHeight + GlowMargin));
+
+            if (continueGlow.transform.GetSiblingIndex() > primary.transform.GetSiblingIndex())
+            {
+                continueGlow.transform.SetSiblingIndex(primary.transform.GetSiblingIndex());
+            }
         }
 
         /// <summary>Shrinks the card on short (landscape) screens so the buttons stay on screen.</summary>
@@ -929,7 +1392,7 @@ namespace BlockPuzzle.UI
             float fit = 1f;
             if (area.height > 1f && area.width > 1f)
             {
-                fit = Mathf.Min(1f, (area.height - 60f) / cardHeight, (area.width - 40f) / CardWidth);
+                fit = Mathf.Min(1f, (area.height - 60f) / cardHeight, (area.width - 40f) / cardWidth);
             }
 
             fit = Mathf.Max(0.5f, fit);
@@ -977,6 +1440,111 @@ namespace BlockPuzzle.UI
             {
                 target.gameObject.SetActive(active);
             }
+        }
+
+        // ---------------------------------------------------------------- baked sprites
+
+        /// <summary>Green rounded rect, lighter on top; nine-sliced so the corners stay round at any size.</summary>
+        private static Sprite GradientSprite
+        {
+            get
+            {
+                if (gradientSprite == null)
+                {
+                    gradientSprite = BakeGradientSprite();
+                }
+
+                return gradientSprite;
+            }
+        }
+
+        /// <summary>Soft white vertical stripe (transparent at both edges) for the shine.</summary>
+        private static Sprite SheenSprite
+        {
+            get
+            {
+                if (sheenSprite == null)
+                {
+                    sheenSprite = BakeSheenSprite();
+                }
+
+                return sheenSprite;
+            }
+        }
+
+        private static Sprite BakeGradientSprite()
+        {
+            const int size = 96;
+            const int radius = 40;
+            Color top = Color.Lerp(GameTheme.ShopBuy, Color.white, 0.3f);
+            Color bottom = Color.Lerp(GameTheme.ShopBuy, Color.black, 0.2f);
+
+            var texture = NewTexture("GameOverGradient", size, size);
+            var pixels = new Color[size * size];
+            for (int py = 0; py < size; py++)
+            {
+                // Only the stretched middle rows blend; the corner rows are flat so the ends of a tall button match.
+                float blend = Mathf.Clamp01((py + 0.5f - radius) / (size - radius * 2f));
+                Color rowColor = Color.Lerp(bottom, top, blend);
+
+                for (int px = 0; px < size; px++)
+                {
+                    float dx = Mathf.Max(Mathf.Abs(px + 0.5f - size * 0.5f) - (size * 0.5f - radius), 0f);
+                    float dy = Mathf.Max(Mathf.Abs(py + 0.5f - size * 0.5f) - (size * 0.5f - radius), 0f);
+                    float distance = Mathf.Sqrt(dx * dx + dy * dy) - radius;
+                    Color pixel = rowColor;
+                    pixel.a = Mathf.Clamp01(0.5f - distance);
+                    pixels[py * size + px] = pixel;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(radius, radius, radius, radius));
+            sprite.name = "GameOverGradient";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Sprite BakeSheenSprite()
+        {
+            const int width = 64;
+            var texture = NewTexture("GameOverSheen", width, 4);
+            var pixels = new Color[width * 4];
+            for (int px = 0; px < width; px++)
+            {
+                float edge = 1f - Mathf.Abs((px + 0.5f) / width * 2f - 1f);
+                float alpha = Mathf.Pow(edge, 1.5f) * 0.45f;
+                for (int py = 0; py < 4; py++)
+                {
+                    pixels[py * width + px] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, 4f), new Vector2(0.5f, 0.5f), 100f);
+            sprite.name = "GameOverSheen";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
+        private static Texture2D NewTexture(string name, int width, int height)
+        {
+            return new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = name,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave
+            };
         }
     }
 }

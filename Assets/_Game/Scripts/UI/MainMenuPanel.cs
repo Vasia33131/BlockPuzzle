@@ -362,8 +362,9 @@ namespace BlockPuzzle.UI
             }
 
             float banner = GameTheme.ActiveBannerReserve;
-            Place(settings.Slot, 0f, 1f, 0f, 1f, Margin, -Margin, new Vector2(SettingsSize, SettingsSize));
-            Place(coinSlot, 1f, 1f, 1f, 1f, -Margin, -Margin - 12f, CoinCounterView.Size);
+            // The balance always sits top-left, the settings gear top-right.
+            Place(coinSlot, 0f, 1f, 0f, 1f, Margin, -Margin - 12f, CoinCounterView.Size);
+            Place(settings.Slot, 1f, 1f, 1f, 1f, -Margin, -Margin, new Vector2(SettingsSize, SettingsSize));
 
             if (portrait)
             {
@@ -401,6 +402,31 @@ namespace BlockPuzzle.UI
 
         private RectTransform logoSlot;
 
+        /// <summary>
+        /// The painted backdrop over the gradient, cropped to cover the screen in any orientation.
+        /// Without the picture the gradient alone stays.
+        /// </summary>
+        private static void BuildBackgroundArt(RectTransform background)
+        {
+            Sprite sprite = GameArt.MenuBackground;
+            if (sprite == null)
+            {
+                return;
+            }
+
+            // The mask keeps the cover-cropped picture inside the screen.
+            background.gameObject.AddComponent<RectMask2D>();
+            Image picture = UIFactory.CreateImage("BackgroundArt", background, Color.white, false);
+            picture.sprite = sprite;
+            picture.raycastTarget = false;
+            RectTransform rect = picture.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            var fitter = picture.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = sprite.rect.width / sprite.rect.height;
+        }
+
         private void Build(RectTransform root)
         {
             canvasGroup = gameObject.GetComponent<CanvasGroup>();
@@ -414,6 +440,7 @@ namespace BlockPuzzle.UI
             UIFactory.Stretch(background.rectTransform);
             background.gameObject.AddComponent<VerticalGradient>()
                 .SetColors(MenuArt.BackgroundTop, MenuArt.BackgroundBottom);
+            BuildBackgroundArt(background.rectTransform);
 
             glowImage = UIFactory.CreateImage("LogoGlow", root, Color.white, false);
             glowImage.sprite = MenuArt.GlowSprite;
@@ -475,6 +502,7 @@ namespace BlockPuzzle.UI
 
             gift = MenuGiftButton.Create(content);
             gift.Button.onClick.AddListener(HandleGiftClicked);
+            gift.Slot.gameObject.SetActive(MetaClock.DailyFeaturesEnabled);
 
             introOrder.Add(settings.Slot);
             introOrder.Add(coinSlot);

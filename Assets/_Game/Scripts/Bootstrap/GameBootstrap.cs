@@ -65,6 +65,7 @@ namespace BlockPuzzle.Bootstrap
             Step("LevelWinPanel.Ensure", () => LevelWinPanel.Ensure(canvasRect, gameManager));
             Step("LevelFailPanel.Ensure", () => LevelFailPanel.Ensure(canvasRect, gameManager));
             Step("LevelExitConfirmPanel.Ensure", () => LevelExitConfirmPanel.Ensure(canvasRect, gameManager));
+            Step("RestartConfirmPanel.Ensure", () => RestartConfirmPanel.Ensure(canvasRect, gameManager));
 
             // Meta layer overlays are always built in code. The menu goes first: the daily
             // reward pops up over it and lifts itself to the top.

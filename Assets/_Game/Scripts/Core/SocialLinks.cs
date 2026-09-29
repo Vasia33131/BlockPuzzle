@@ -15,6 +15,12 @@ namespace BlockPuzzle.Core
         public const string Telegram = "telegram";
         public const string YouTube = "youtube";
 
+        /// <summary>
+        /// Hard switch over the config asset. Yandex Games forbids links to other platforms, so a
+        /// release build never shows or opens them, whatever <see cref="SocialLinksConfig.enabled"/> says.
+        /// </summary>
+        public static bool ExternalLinksAllowed => false;
+
         private static SocialLinksConfig config;
         private static bool configLoaded;
 
@@ -75,6 +81,11 @@ namespace BlockPuzzle.Core
 
         private static string Resolve(Func<SocialLinksConfig, string> field)
         {
+            if (!ExternalLinksAllowed)
+            {
+                return null;
+            }
+
             if (!configLoaded)
             {
                 config = Resources.Load<SocialLinksConfig>(SocialLinksConfig.ResourcePath);

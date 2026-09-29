@@ -21,11 +21,13 @@ namespace BlockPuzzle.Platform
         public const string ClearLineRewardId = "clear_line";
         public const string LevelContinueRewardId = "level_continue";
         public const string LevelDoubleRewardId = "level_double";
+        public const string ShopCoinsRewardId = "shop_coins";
 
         private GameOverPanel gameOverPanel;
         private LevelFailPanel levelFailPanel;
         private LevelWinPanel levelWinPanel;
         private BoosterBar boosterBar;
+        private ShopPanel shopPanel;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCreate()
@@ -46,6 +48,7 @@ namespace BlockPuzzle.Platform
             TryBindGameOverPanel();
             TryBindLevelPanels();
             TryBindBoosterBar();
+            TryBindShop();
         }
 
         private void OnDisable()
@@ -54,6 +57,7 @@ namespace BlockPuzzle.Platform
             UnbindGameOverPanel();
             UnbindLevelPanels();
             UnbindBoosterBar();
+            UnbindShop();
         }
 
         private void Update()
@@ -71,6 +75,11 @@ namespace BlockPuzzle.Platform
             if (boosterBar == null)
             {
                 TryBindBoosterBar();
+            }
+
+            if (shopPanel == null)
+            {
+                TryBindShop();
             }
         }
 
@@ -172,6 +181,35 @@ namespace BlockPuzzle.Platform
             boosterBar = null;
         }
 
+        private void TryBindShop()
+        {
+            ShopPanel panel = FindObjectOfType<ShopPanel>(true);
+            if (panel == null || panel == shopPanel)
+            {
+                return;
+            }
+
+            UnbindShop();
+            shopPanel = panel;
+            shopPanel.CoinAdRequested += HandleShopCoinsRequested;
+        }
+
+        private void UnbindShop()
+        {
+            if (shopPanel == null)
+            {
+                return;
+            }
+
+            shopPanel.CoinAdRequested -= HandleShopCoinsRequested;
+            shopPanel = null;
+        }
+
+        private void HandleShopCoinsRequested()
+        {
+            ShowRewarded(ShopCoinsRewardId);
+        }
+
         private void HandleContinueRequested()
         {
             ShowRewarded(ContinueRewardId);
@@ -233,6 +271,12 @@ namespace BlockPuzzle.Platform
             if (id == LevelContinueRewardId || id == LevelDoubleRewardId)
             {
                 HandleLevelReward(id);
+                return;
+            }
+
+            if (id == ShopCoinsRewardId)
+            {
+                MetaProgress.AddCoins(CoinPackCatalog.AdReward);
                 return;
             }
 

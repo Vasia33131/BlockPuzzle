@@ -20,6 +20,24 @@ namespace BlockPuzzle.Core
         private static Func<long> serverUnixMs;
         private static bool deviceFallback;
 
+        /// <summary>
+        /// False in a release build without the PluginYG2 ServerTime module (<c>ServerTime_yg</c>):
+        /// the calendar features (daily reward, daily tasks) are then hidden instead of trusting the
+        /// device clock, which a player can move. The editor keeps them for testing on the device clock.
+        /// Scripting defines are project-wide, so Core can check the module's define directly.
+        /// </summary>
+        public static bool DailyFeaturesEnabled
+        {
+            get
+            {
+#if ServerTime_yg || UNITY_EDITOR
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
         /// <summary>True once a server clock was installed.</summary>
         public static bool HasServerTime => serverUnixMs != null;
 

@@ -13,13 +13,24 @@ namespace BlockPuzzle.Platform
     /// Yandex Games payments. Products:
     /// <see cref="NoAdsProductId"/> removes sticky and interstitial ads;
     /// <see cref="OceanThemeProductId"/> and <see cref="CandyThemeProductId"/> unlock palettes;
-    /// <see cref="ShapesPack1ProductId"/> mixes extra figures into the tray.
+    /// <see cref="ShapesPack1ProductId"/> mixes extra figures into the tray;
+    /// the <see cref="CoinPackCatalog"/> packs are consumables that add coins.
     /// Rewarded placements stay available — the player opts into those videos for a bonus.
     ///
     /// The shop only ever shows what the catalog returned: <c>purchase.price</c> as the
     /// amount and <c>purchase.currencyImageURL</c> as the icon next to it (1.13.2, 1.13.4).
-    /// Grants are written through <see cref="PlayerProgress"/>, which the cloud service
-    /// mirrors into the Yandex save, so a consumed purchase survives another device (1.13.3).
+    ///
+    /// All four products are permanent: they are bought through <c>BP_BuyPermanent</c>
+    /// (PermanentPurchase.jslib) and never consumed, so each stays in <c>getPurchases()</c>
+    /// for good and ownership is restored from the platform on any device — the plugin's own
+    /// <c>BuyPayments</c> would consume them. A permanent product counts as owned when the
+    /// catalog lists it unconsumed (<c>consumed == false</c>) or when the save already says so;
+    /// the save path keeps players who bought before this change (their purchase was consumed
+    /// back then; <see cref="PlayerProgress"/> is mirrored into the Yandex save, 1.13.3).
+    ///
+    /// Consumable products (<see cref="ConsumableProductIds"/>) go through the plugin as before:
+    /// it consumes them first and only then raises <c>onPurchaseSuccess</c>, so the handler
+    /// grants and never consumes a second time (that would race and pay twice).
     /// </summary>
     [DefaultExecutionOrder(85)]
     public sealed class YandexPaymentsService : MonoBehaviour
@@ -40,16 +51,27 @@ namespace BlockPuzzle.Platform
             ShapesPack1ProductId
         };
 
+        /// <summary>Spent products (coin packs). Granted once per purchase, consumed by the plugin.</summary>
+        private static readonly string[] ConsumableProductIds = CoinPackCatalog.ProductIds;
+
+        /// <summary>
+        /// The theme products are no longer on sale (themes cost coins only), but they stay here so a
+        /// player who bought one earlier still gets it restored from the platform.
+        /// </summary>
         private static readonly string[] AllProductIds =
         {
             NoAdsProductId,
             OceanThemeProductId,
             CandyThemeProductId,
-            ShapesPack1ProductId
+            ShapesPack1ProductId,
+            CoinPackCatalog.SmallId,
+            CoinPackCatalog.MediumId,
+            CoinPackCatalog.LargeId
         };
 
         private ShopPanel shopPanel;
-        private bool restoreRequested;
+        private bool pendingConsumablesHandled;
+        private float nextBindTime;
 
         // Loaders live on this always-active object, not on the shop card, so a
         // download is never cut short by the overlay being hidden.
@@ -98,8 +120,10 @@ namespace BlockPuzzle.Platform
 
         private void Update()
         {
-            if (shopPanel == null)
+            // A scene-wide search is too heavy for every frame while the shop does not exist yet.
+            if (shopPanel == null && Time.unscaledTime >= nextBindTime)
             {
+                nextBindTime = Time.unscaledTime + 0.5f;
                 TryBindShop();
             }
         }
@@ -117,6 +141,7 @@ namespace BlockPuzzle.Platform
             shopPanel.NoAdsBuyRequested += HandleNoAdsBuyRequested;
             shopPanel.ThemeBuyRequested += HandleThemeBuyRequested;
             shopPanel.PackBuyRequested += HandlePackBuyRequested;
+            shopPanel.CoinPackBuyRequested += HandleCoinPackBuyRequested;
             PushCatalogOffers();
             shopPanel.RefreshPurchaseState();
         }
@@ -131,6 +156,7 @@ namespace BlockPuzzle.Platform
             shopPanel.NoAdsBuyRequested -= HandleNoAdsBuyRequested;
             shopPanel.ThemeBuyRequested -= HandleThemeBuyRequested;
             shopPanel.PackBuyRequested -= HandlePackBuyRequested;
+            shopPanel.CoinPackBuyRequested -= HandleCoinPackBuyRequested;
             shopPanel = null;
         }
 
@@ -164,6 +190,14 @@ namespace BlockPuzzle.Platform
             TryBuy(id);
         }
 
+        private void HandleCoinPackBuyRequested(string id)
+        {
+            if (IsConsumableProduct(id))
+            {
+                TryBuy(id);
+            }
+        }
+
         /// <summary>A product the catalog does not list cannot be sold, so it is not offered.</summary>
         private static void TryBuy(string id)
         {
@@ -172,37 +206,49 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
+            if (!IsPermanentProduct(id))
+            {
+                YG2.BuyPayments(id);
+                return;
+            }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Same pause as the plugin's BuyPayments; OnPurchaseSuccess / OnPurchaseFailed lift it.
+            YG2.PauseGame(true);
+            BP_BuyPermanent(id);
+#else
             YG2.BuyPayments(id);
+#endif
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void BP_BuyPermanent(string id);
+#endif
 
         private void HandlePurchaseSuccess(string id)
         {
-            if (id == NoAdsProductId)
+            if (IsPermanentProduct(id))
             {
-                YG2.ConsumePurchaseByID(id);
-                GrantNoAds();
+                // The plugin marks every success as consumed; a permanent product stays in getPurchases.
+                Purchase purchase = YG2.PurchaseByID(id);
+                if (purchase != null)
+                {
+                    purchase.consumed = false;
+                }
+
+                GrantPermanent(id);
+                GameTheme.ApplyFromProgress();
                 return;
             }
 
-            if (IsThemeProduct(id))
+            if (IsConsumableProduct(id))
             {
-                YG2.ConsumePurchaseByID(id);
-                GrantTheme(id);
-                return;
-            }
-
-            if (IsPackProduct(id))
-            {
-                YG2.ConsumePurchaseByID(id);
-                GrantPack(id);
+                GrantConsumable(id);
             }
         }
 
-        private void HandleSdkData()
-        {
-            RestorePurchases();
-            HandlePaymentsReady();
-        }
+        private void HandleSdkData() => HandlePaymentsReady();
 
         /// <summary>
         /// The account copy of the purchases is in. Redraw the shop with it before the
@@ -219,72 +265,121 @@ namespace BlockPuzzle.Platform
             }
         }
 
+        /// <summary>Runs on the save and on the catalog: whichever arrives last sees both.</summary>
         private void HandlePaymentsReady()
         {
-            YG2.ConsumePurchases();
             PushCatalogOffers();
             if (!PlayerProgress.ForgetPurchasesOnPlay)
             {
-                TryGrantFromCatalog();
-            }
-        }
-
-        private void RestorePurchases()
-        {
-            if (restoreRequested)
-            {
-                YG2.ConsumePurchases();
-                return;
-            }
-
-            restoreRequested = true;
-            YG2.ConsumePurchases();
-            if (!PlayerProgress.ForgetPurchasesOnPlay)
-            {
-                TryGrantFromCatalog();
+                RestorePermanentFromCatalog();
+                DeliverPendingConsumables();
             }
         }
 
         /// <summary>
-        /// Unconsumed catalog entries mean the player already paid and delivery never
-        /// finished — grant so a reinstall or a failed consume does not take the goods back.
+        /// Every permanent product the platform still lists (never consumed) is owned — on a new
+        /// device, after cleared storage or a lost save. Nothing is consumed here.
         /// </summary>
-        private void TryGrantFromCatalog()
+        private void RestorePermanentFromCatalog()
         {
-            Purchase noAds = YG2.PurchaseByID(NoAdsProductId);
-            if (noAds != null && !noAds.consumed)
+            for (int i = 0; i < AllProductIds.Length; i++)
             {
-                YG2.ConsumePurchaseByID(NoAdsProductId);
-                GrantNoAds();
+                string id = AllProductIds[i];
+                Purchase purchase = YG2.PurchaseByID(id);
+                if (purchase != null && !purchase.consumed && IsPermanentProduct(id))
+                {
+                    GrantPermanent(id);
+                }
             }
-            else if (PlayerProgress.AdsRemoved)
+
+            if (PlayerProgress.AdsRemoved)
             {
                 ApplyAdsRemoved();
             }
 
-            for (int i = 0; i < ThemeProductIds.Length; i++)
-            {
-                string themeId = ThemeProductIds[i];
-                Purchase purchase = YG2.PurchaseByID(themeId);
-                if (purchase != null && !purchase.consumed)
-                {
-                    YG2.ConsumePurchaseByID(themeId);
-                    GrantTheme(themeId);
-                }
-            }
-
-            for (int i = 0; i < PackProductIds.Length; i++)
-            {
-                string packId = PackProductIds[i];
-                Purchase purchase = YG2.PurchaseByID(packId);
-                if (purchase != null && !purchase.consumed)
-                {
-                    YG2.ConsumePurchaseByID(packId);
-                    GrantPack(packId);
-                }
-            }
-
             GameTheme.ApplyFromProgress();
+        }
+
+        /// <summary>
+        /// A paid consumable whose delivery never finished (tab closed mid-purchase) is still in
+        /// getPurchases: consume it once per launch, and the plugin's success callback grants it.
+        /// </summary>
+        private void DeliverPendingConsumables()
+        {
+            if (pendingConsumablesHandled || YG2.purchases == null || YG2.purchases.Length == 0)
+            {
+                return;
+            }
+
+            pendingConsumablesHandled = true;
+            for (int i = 0; i < ConsumableProductIds.Length; i++)
+            {
+                string id = ConsumableProductIds[i];
+                Purchase purchase = YG2.PurchaseByID(id);
+                if (purchase != null && !purchase.consumed)
+                {
+                    YG2.ConsumePurchaseByID(id);
+                }
+            }
+        }
+
+        /// <summary>Grants a permanent product; granting one already owned changes nothing.</summary>
+        private void GrantPermanent(string id)
+        {
+            if (id == NoAdsProductId)
+            {
+                if (!PlayerProgress.AdsRemoved)
+                {
+                    GrantNoAds();
+                }
+
+                return;
+            }
+
+            if (IsThemeProduct(id))
+            {
+                if (!PlayerProgress.OwnsTheme(id))
+                {
+                    GrantTheme(id);
+                }
+
+                return;
+            }
+
+            if (IsPackProduct(id) && !PlayerProgress.OwnsPack(id))
+            {
+                GrantPack(id);
+            }
+        }
+
+        /// <summary>Coin packs: the plugin already consumed the purchase, so the coins are simply added.</summary>
+        private static void GrantConsumable(string id)
+        {
+            int amount = CoinPackCatalog.Amount(id);
+            if (amount <= 0)
+            {
+                Debug.LogWarning($"[Payments] Consumable '{id}' has no grant.");
+                return;
+            }
+
+            MetaProgress.AddCoins(amount);
+        }
+
+        private static bool IsPermanentProduct(string id) => Contains(AllProductIds, id) && !IsConsumableProduct(id);
+
+        private static bool IsConsumableProduct(string id) => Contains(ConsumableProductIds, id);
+
+        private static bool Contains(string[] ids, string id)
+        {
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] == id)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void GrantNoAds()
