@@ -71,3 +71,15 @@ obj/
 /[Aa]rtifacts/
 /[Cc]odeCoverage/
 
+# IDE caches
+.vs/
+.vscode/
+*.opendb
+*.VC.db
+
+# Builds and logs (APK goes to GitHub Releases)
+/[Bb]uilds/
+*.apk
+*.aab
+*.log
+
