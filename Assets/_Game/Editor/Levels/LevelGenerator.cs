@@ -458,16 +458,16 @@ namespace BlockPuzzle.EditorTools
             List<int> metrics = report != null ? report.WinMetrics : null;
             if (level.HasMoveLimit)
             {
-                int two = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.4f) : Mathf.RoundToInt(level.MoveLimit * 0.3f);
-                int three = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.8f) : Mathf.RoundToInt(level.MoveLimit * 0.6f);
+                int two = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.15f) : Mathf.RoundToInt(level.MoveLimit * 0.3f);
+                int three = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.5f) : Mathf.RoundToInt(level.MoveLimit * 0.6f);
                 two = Mathf.Max(1, two);
                 level.SetStarThresholds(two, Mathf.Max(two + 1, three));
             }
             else
             {
                 int target = level.GoalTarget;
-                int two = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.4f) : Mathf.RoundToInt(target * 1.3f);
-                int three = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.8f) : Mathf.RoundToInt(target * 1.7f);
+                int two = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.15f) : Mathf.RoundToInt(target * 1.3f);
+                int three = metrics != null && metrics.Count > 0 ? Percentile(metrics, 0.5f) : Mathf.RoundToInt(target * 1.7f);
                 two = RoundTo(Mathf.Max(target, two), 50);
                 level.SetStarThresholds(two, Mathf.Max(two + 100, RoundTo(three, 50)));
             }

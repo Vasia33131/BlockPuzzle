@@ -21,5 +21,5 @@ MonoBehaviour:
   shapeSeed: 5131738
   difficulty: 0.6867347
   twoStarThreshold: 1
-  threeStarThreshold: 4
+  threeStarThreshold: 2
   coinReward: 30

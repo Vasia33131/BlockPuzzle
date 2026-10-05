@@ -23,7 +23,6 @@ namespace BlockPuzzle.UI
         public const int LowMoves = 3;
 
         private const float LeftWidth = 360f;
-        private const float MovesWidth = 250f;
         private const float GoalIconSize = 54f;
         private const float FlightDuration = 0.55f;
         private const float FlightStagger = 0.06f;
@@ -37,9 +36,8 @@ namespace BlockPuzzle.UI
         private TMP_Text title;
         private TMP_Text goalText;
         private Image goalIcon;
-        private RectTransform movesBlock;
-        private TMP_Text movesCaption;
-        private TMP_Text movesValue;
+        private RectTransform goalRow;
+        private TMP_Text movesText;
 
         private readonly List<RectTransform> flights = new List<RectTransform>();
         private int pendingCrystals;
@@ -85,7 +83,7 @@ namespace BlockPuzzle.UI
             title = CreateHudText("Title", left, 44f, GameTheme.TextPrimary, TextAlignmentOptions.BottomLeft);
             SetRows(title.rectTransform, 0.5f, 1f);
 
-            RectTransform goalRow = UIFactory.CreateRect("GoalRow", left);
+            goalRow = UIFactory.CreateRect("GoalRow", left);
             SetRows(goalRow, 0f, 0.5f);
 
             goalIcon = UIFactory.CreateImage("GoalIcon", goalRow, Color.white, rounded: false);
@@ -101,20 +99,28 @@ namespace BlockPuzzle.UI
             goalText.rectTransform.offsetMin = Vector2.zero;
             goalText.rectTransform.offsetMax = Vector2.zero;
 
-            // Centre: the moves left.
-            movesBlock = UIFactory.CreateRect("Moves", root);
-            movesBlock.anchorMin = new Vector2(0.5f, 0f);
-            movesBlock.anchorMax = new Vector2(0.5f, 1f);
-            movesBlock.pivot = new Vector2(0.5f, 0.5f);
-            movesBlock.sizeDelta = new Vector2(MovesWidth, 0f);
-            movesBlock.anchoredPosition = Vector2.zero;
+            // Under the goal: the moves left ("ХОДЫ 12"). The centre of the strip belongs to the shop button.
+            movesText = CreateHudText("Moves", left, 40f, GameTheme.TextPrimary, TextAlignmentOptions.TopLeft);
+            movesText.rectTransform.pivot = new Vector2(0f, 0.5f);
+        }
 
-            movesCaption = CreateHudText("Caption", movesBlock, 30f, GameTheme.TextSecondary, TextAlignmentOptions.Bottom);
-            SetRows(movesCaption.rectTransform, 0.72f, 1f);
-
-            movesValue = CreateHudText("Value", movesBlock, 88f, GameTheme.TextPrimary, TextAlignmentOptions.Top);
-            SetRows(movesValue.rectTransform, 0f, 0.74f);
-            movesValue.fontSizeMax = 88f;
+        /// <summary>
+        /// Two rows (level, goal) without a move limit; three rows (level, goal, moves) with one.
+        /// </summary>
+        private void ApplyRows(bool limited)
+        {
+            if (limited)
+            {
+                SetRows(title.rectTransform, 0.66f, 1f);
+                SetRows(goalRow, 0.33f, 0.66f);
+                SetRows(movesText.rectTransform, 0f, 0.33f);
+                movesText.rectTransform.pivot = new Vector2(0f, 0.5f);
+            }
+            else
+            {
+                SetRows(title.rectTransform, 0.5f, 1f);
+                SetRows(goalRow, 0f, 0.5f);
+            }
         }
 
         private static TMP_Text CreateHudText(
@@ -258,8 +264,6 @@ namespace BlockPuzzle.UI
 
             title.text = GameLocalization.LevelTitle(levelRun.LevelNumber).ToUpperInvariant();
             title.color = GameTheme.TextPrimary;
-            movesCaption.text = GameLocalization.MovesCaption;
-            movesCaption.color = GameTheme.TextSecondary;
 
             RefreshGoal();
             RefreshMoves(false);
@@ -300,25 +304,27 @@ namespace BlockPuzzle.UI
 
         private void RefreshMoves(bool animate)
         {
-            if (levelRun == null || movesBlock == null)
+            if (levelRun == null || movesText == null)
             {
                 return;
             }
 
             bool limited = levelRun.HasMoveLimit;
-            movesBlock.gameObject.SetActive(limited && visible);
+            ApplyRows(limited);
+            movesText.gameObject.SetActive(limited && visible);
             if (!limited)
             {
                 return;
             }
 
             int left = levelRun.MovesLeft;
-            movesValue.text = left.ToString();
-            movesValue.color = left <= LowMoves ? WarningColor : GameTheme.TextPrimary;
+            Color valueColor = left <= LowMoves ? WarningColor : GameTheme.TextPrimary;
+            movesText.color = GameTheme.TextSecondary;
+            movesText.text = $"{GameLocalization.MovesCaption} <color=#{ColorUtility.ToHtmlStringRGBA(valueColor)}>{left}</color>";
 
             if (animate && left != shownMoves && shownMoves != int.MinValue)
             {
-                GameTween.Punch(movesValue.rectTransform, left <= LowMoves ? 0.3f : 0.15f, 0.25f, unscaled: true);
+                GameTween.Punch(movesText.rectTransform, left <= LowMoves ? 0.3f : 0.15f, 0.25f, unscaled: true);
             }
 
             shownMoves = left;

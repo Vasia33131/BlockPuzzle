@@ -94,18 +94,20 @@ namespace BlockPuzzle.Levels
         public int CountOccupied() => CellCount - CountCells(LevelCellType.Empty);
 
         /// <summary>
-        /// Stars (1..3) for a finished level. Levels with a move limit compare the moves left,
-        /// levels without one compare the score.
+        /// Stars (2..3) for a finished level. A win always gives at least two stars. Levels with a
+        /// move limit give three when at least one move is left; levels without one give three for
+        /// any win, since the level ends as soon as the goal is reached and the score cannot run
+        /// far past it. The authored thresholds only make it easier, never harder.
         /// </summary>
         public int GetStars(int movesLeft, int score)
         {
-            int value = StarsUseMovesLeft ? movesLeft : score;
-            if (threeStarThreshold > 0 && value >= threeStarThreshold)
+            if (!StarsUseMovesLeft)
             {
                 return 3;
             }
 
-            return twoStarThreshold > 0 && value >= twoStarThreshold ? 2 : 1;
+            int three = threeStarThreshold > 0 ? Mathf.Min(threeStarThreshold, 1) : 0;
+            return movesLeft >= three ? 3 : 2;
         }
 
         /// <summary>Human-readable problems of this level; empty when it is consistent.</summary>

@@ -156,6 +156,10 @@ namespace BlockPuzzle.EditorTools
             string unit = selected.StarsUseMovesLeft ? "moves left" : "points";
             EditorGUILayout.PropertyField(levelObject.FindProperty("twoStarThreshold"), new GUIContent("2 stars (" + unit + ")"));
             EditorGUILayout.PropertyField(levelObject.FindProperty("threeStarThreshold"), new GUIContent("3 stars (" + unit + ")"));
+            EditorGUILayout.HelpBox(
+                "Any win gives 2 stars. 3 stars: at least 1 move left (0 = always), or any win without a move limit. " +
+                "Thresholds above 1 are capped.",
+                MessageType.Info);
         }
 
         private void DrawBoard()
