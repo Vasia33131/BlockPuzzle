@@ -12,10 +12,14 @@ namespace BlockPuzzle.Core
     {
         [SerializeField] private List<BlockShape> shapes = new List<BlockShape>();
 
+        [Tooltip("Extra figures mixed into the tray after the player buys shapes_pack_1.")]
+        [SerializeField] private List<BlockShape> pack1 = new List<BlockShape>();
+
         [Tooltip("Version of the built-in catalog this asset was generated from.")]
         [SerializeField, HideInInspector] private int catalogVersion;
 
         private List<BlockShape> runtimeFallback;
+        private List<BlockShape> runtimePack1Fallback;
 
         /// <summary>
         /// Lets the editor generator notice that the built-in catalog has moved on — a
@@ -37,12 +41,30 @@ namespace BlockPuzzle.Core
             }
         }
 
+        /// <summary>
+        /// Paid pack figures. Empty assets fall back to the built-in pack so a stale
+        /// <see cref="ShapeLibrary"/> still delivers the extra set after purchase.
+        /// </summary>
+        public IReadOnlyList<BlockShape> Pack1
+        {
+            get
+            {
+                if (pack1 != null && pack1.Count > 0)
+                {
+                    return pack1;
+                }
+
+                return runtimePack1Fallback ??= ShapeCatalog.CreatePack1Shapes();
+            }
+        }
+
         /// <summary>Builds an in-memory library from the built-in catalog.</summary>
         public static ShapeLibrary CreateDefault()
         {
             ShapeLibrary library = CreateInstance<ShapeLibrary>();
             library.name = "Default Shape Library";
             library.shapes = ShapeCatalog.CreateDefaultShapes();
+            library.pack1 = ShapeCatalog.CreatePack1Shapes();
             return library;
         }
     }

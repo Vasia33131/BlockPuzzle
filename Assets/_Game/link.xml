@@ -1,0 +1,28 @@
+<!--
+  Keeps code that the managed stripper (Managed Stripping Level = High) cannot see being used.
+
+  - Yandex Games plugin: the page's JavaScript calls methods of YGSendMessage (the "YG2Instance" object)
+    by name through SendMessage, and SDK payloads and saves (SavesYG) are mapped from JSON by field name.
+    Nothing in C# calls those methods, so without this they would be stripped and the SDK callbacks lost.
+  - Our own assemblies are small next to the engine and class libraries, where High stripping saves most;
+    keeping them whole guards the JsonUtility save types and the [RuntimeInitializeOnLoadMethod] services.
+-->
+<linker>
+  <assembly fullname="Assembly-CSharp">
+    <namespace fullname="YG" preserve="all" />
+    <namespace fullname="YG.Insides" preserve="all" />
+    <namespace fullname="YG.LanguageLegacy" preserve="all" />
+    <namespace fullname="YG.Localization" preserve="all" />
+    <namespace fullname="YG.Utils" preserve="all" />
+    <namespace fullname="YG.Utils.LB" preserve="all" />
+    <namespace fullname="YG.Utils.Lang" preserve="all" />
+    <namespace fullname="YG.Utils.Metrica" preserve="all" />
+    <namespace fullname="YG.Utils.Pay" preserve="all" />
+    <namespace fullname="BlockPuzzle.Platform" preserve="all" />
+  </assembly>
+  <assembly fullname="BlockPuzzle.Core" preserve="all" />
+  <assembly fullname="BlockPuzzle.Gameplay" preserve="all" />
+  <assembly fullname="BlockPuzzle.Managers" preserve="all" />
+  <assembly fullname="BlockPuzzle.UI" preserve="all" />
+  <assembly fullname="BlockPuzzle.Bootstrap" preserve="all" />
+</linker>

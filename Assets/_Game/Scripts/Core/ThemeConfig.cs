@@ -22,7 +22,13 @@ namespace BlockPuzzle.Core
 
         public const int PaletteSize = 8;
 
+        /// <summary>Coin price of a paid palette when its asset does not set one.</summary>
+        public const int DefaultPaidCoinPrice = 1500;
+
         [SerializeField] private string id = DefaultId;
+
+        [Tooltip("Price in in-game coins. -1 = built-in default (free classic, 1500 for paid palettes); 0 = not sold for coins.")]
+        [SerializeField] private int coinPrice = -1;
         [SerializeField] private string displayName = "Классика";
         [SerializeField] private Color backgroundTop = new Color(0.10196079f, 0.10196079f, 0.18039216f, 1f);
         [SerializeField] private Color backgroundBottom = new Color(0.08627451f, 0.12941177f, 0.24313726f, 1f);
@@ -44,6 +50,17 @@ namespace BlockPuzzle.Core
         public Sprite BlockPattern => blockPattern != null ? blockPattern : LoadSprite(ResolveBlockPatternPath());
         public Sprite BackgroundPattern => backgroundPattern != null ? backgroundPattern : LoadSprite(ResolveBackgroundPatternPath());
         public float BackgroundPatternAlpha => Mathf.Clamp01(backgroundPatternAlpha);
+
+        /// <summary>
+        /// Coins needed to unlock this palette in the shop, next to the real-money price.
+        /// 0 means it cannot be bought for coins (the free classic palette).
+        /// </summary>
+        public int CoinPrice => coinPrice >= 0 ? coinPrice : DefaultCoinPrice(Id);
+
+        public static int DefaultCoinPrice(string themeId)
+        {
+            return string.IsNullOrEmpty(themeId) || themeId == DefaultId ? 0 : DefaultPaidCoinPrice;
+        }
 
         /// <summary>
         /// Eight figure colours for this theme, indexed like the classic set:

@@ -71,18 +71,47 @@ namespace BlockPuzzle.Core
             float fontSize,
             Color color,
             TextAlignmentOptions alignment = TextAlignmentOptions.Center,
-            FontStyles style = FontStyles.Normal)
+            FontStyles style = FontStyles.Normal,
+            FontRole? role = null)
         {
+            // Without an explicit role a bold request means a heading, everything else is body text.
+            FontRole resolved = role ?? ((style & FontStyles.Bold) != 0 ? FontRole.Heading : FontRole.Body);
+
             RectTransform rect = CreateRect(name, parent);
             var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            GameFonts.Apply(text, resolved);
             text.text = content;
             text.fontSize = fontSize;
             text.color = color;
             text.alignment = alignment;
-            text.fontStyle = style;
+            text.fontStyle = style & ~FontStyles.Bold;
             text.enableWordWrapping = false;
             text.raycastTarget = false;
             return text;
+        }
+
+        /// <summary>Text in Montserrat ExtraBold: titles, numbers, button captions, prices.</summary>
+        public static TextMeshProUGUI CreateHeading(
+            string name,
+            Transform parent,
+            string content,
+            float fontSize,
+            Color color,
+            TextAlignmentOptions alignment = TextAlignmentOptions.Center)
+        {
+            return CreateText(name, parent, content, fontSize, color, alignment, FontStyles.Normal, FontRole.Heading);
+        }
+
+        /// <summary>Text in Montserrat SemiBold: hints, descriptions, captions, small print.</summary>
+        public static TextMeshProUGUI CreateBody(
+            string name,
+            Transform parent,
+            string content,
+            float fontSize,
+            Color color,
+            TextAlignmentOptions alignment = TextAlignmentOptions.Center)
+        {
+            return CreateText(name, parent, content, fontSize, color, alignment, FontStyles.Normal, FontRole.Body);
         }
 
         /// <summary>
@@ -108,12 +137,50 @@ namespace BlockPuzzle.Core
             colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
             colors.fadeDuration = 0.08f;
             button.colors = colors;
+            ButtonPressAnimator.Attach(button);
 
             TextMeshProUGUI label = CreateText(
-                "Label", image.rectTransform, caption, fontSize, labelColor, TextAlignmentOptions.Center, FontStyles.Bold);
+                "Label", image.rectTransform, caption, fontSize, labelColor, TextAlignmentOptions.Center, FontStyles.Normal, FontRole.Heading);
             Stretch(label.rectTransform);
+            // Montserrat is wider than the old font: a long caption shrinks instead of spilling out.
+            FitText(label, 0.6f);
 
             return button;
+        }
+
+        /// <summary>
+        /// Lets a caption shrink (down to <paramref name="minRatio"/> of its size) instead of running out of its
+        /// box, so a longer Russian text or a narrow landscape screen never spills over the edge. The size only
+        /// drops when the text does not fit; a caption that fits keeps <paramref name="label"/>.fontSize.
+        /// </summary>
+        public static void FitText(TMP_Text label, float minRatio = 0.6f)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.enableAutoSizing = true;
+            label.fontSizeMax = label.fontSize;
+            label.fontSizeMin = label.fontSize * Mathf.Clamp(minRatio, 0.2f, 1f);
+        }
+
+        public static void SetText(TMP_Text label, string content)
+        {
+            if (label != null)
+            {
+                label.text = content ?? string.Empty;
+            }
+        }
+
+        public static void SetButtonText(Button button, string content)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            SetText(button.GetComponentInChildren<TMP_Text>(true), content);
         }
 
         /// <summary>Makes the rect fill its parent, optionally inset by <paramref name="padding"/>.</summary>

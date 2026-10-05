@@ -1,4 +1,5 @@
 using UnityEngine;
+using BlockPuzzle.Core;
 using BlockPuzzle.Managers;
 using BlockPuzzle.UI;
 using YG;
@@ -18,9 +19,15 @@ namespace BlockPuzzle.Platform
         public const string UndoRewardId = "undo";
         public const string ExtraPieceRewardId = "extra_piece";
         public const string ClearLineRewardId = "clear_line";
+        public const string LevelContinueRewardId = "level_continue";
+        public const string LevelDoubleRewardId = "level_double";
+        public const string ShopCoinsRewardId = "shop_coins";
 
         private GameOverPanel gameOverPanel;
+        private LevelFailPanel levelFailPanel;
+        private LevelWinPanel levelWinPanel;
         private BoosterBar boosterBar;
+        private ShopPanel shopPanel;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCreate()
@@ -39,14 +46,18 @@ namespace BlockPuzzle.Platform
         {
             YG2.onRewardAdv += HandleReward;
             TryBindGameOverPanel();
+            TryBindLevelPanels();
             TryBindBoosterBar();
+            TryBindShop();
         }
 
         private void OnDisable()
         {
             YG2.onRewardAdv -= HandleReward;
             UnbindGameOverPanel();
+            UnbindLevelPanels();
             UnbindBoosterBar();
+            UnbindShop();
         }
 
         private void Update()
@@ -56,9 +67,19 @@ namespace BlockPuzzle.Platform
                 TryBindGameOverPanel();
             }
 
+            if (levelFailPanel == null || levelWinPanel == null)
+            {
+                TryBindLevelPanels();
+            }
+
             if (boosterBar == null)
             {
                 TryBindBoosterBar();
+            }
+
+            if (shopPanel == null)
+            {
+                TryBindShop();
             }
         }
 
@@ -84,6 +105,52 @@ namespace BlockPuzzle.Platform
 
             gameOverPanel.ContinueRequested -= HandleContinueRequested;
             gameOverPanel = null;
+        }
+
+        private void TryBindLevelPanels()
+        {
+            if (levelFailPanel == null)
+            {
+                levelFailPanel = FindObjectOfType<LevelFailPanel>(true);
+                if (levelFailPanel != null)
+                {
+                    levelFailPanel.ContinueRequested += HandleLevelContinueRequested;
+                }
+            }
+
+            if (levelWinPanel == null)
+            {
+                levelWinPanel = FindObjectOfType<LevelWinPanel>(true);
+                if (levelWinPanel != null)
+                {
+                    levelWinPanel.DoubleRequested += HandleLevelDoubleRequested;
+                }
+            }
+        }
+
+        private void UnbindLevelPanels()
+        {
+            if (levelFailPanel != null)
+            {
+                levelFailPanel.ContinueRequested -= HandleLevelContinueRequested;
+                levelFailPanel = null;
+            }
+
+            if (levelWinPanel != null)
+            {
+                levelWinPanel.DoubleRequested -= HandleLevelDoubleRequested;
+                levelWinPanel = null;
+            }
+        }
+
+        private void HandleLevelContinueRequested()
+        {
+            ShowRewarded(LevelContinueRewardId);
+        }
+
+        private void HandleLevelDoubleRequested()
+        {
+            ShowRewarded(LevelDoubleRewardId);
         }
 
         private void TryBindBoosterBar()
@@ -114,28 +181,105 @@ namespace BlockPuzzle.Platform
             boosterBar = null;
         }
 
+        private void TryBindShop()
+        {
+            ShopPanel panel = FindObjectOfType<ShopPanel>(true);
+            if (panel == null || panel == shopPanel)
+            {
+                return;
+            }
+
+            UnbindShop();
+            shopPanel = panel;
+            shopPanel.CoinAdRequested += HandleShopCoinsRequested;
+        }
+
+        private void UnbindShop()
+        {
+            if (shopPanel == null)
+            {
+                return;
+            }
+
+            shopPanel.CoinAdRequested -= HandleShopCoinsRequested;
+            shopPanel = null;
+        }
+
+        private void HandleShopCoinsRequested()
+        {
+            ShowRewarded(ShopCoinsRewardId);
+        }
+
         private void HandleContinueRequested()
         {
-            YG2.RewardedAdvShow(ContinueRewardId);
+            ShowRewarded(ContinueRewardId);
         }
 
         private void HandleUndoRequested()
         {
-            YG2.RewardedAdvShow(UndoRewardId);
+            ShowRewarded(UndoRewardId);
         }
 
         private void HandleExtraRequested()
         {
-            YG2.RewardedAdvShow(ExtraPieceRewardId);
+            ShowRewarded(ExtraPieceRewardId);
         }
 
         private void HandleClearRequested()
         {
-            YG2.RewardedAdvShow(ClearLineRewardId);
+            ShowRewarded(ClearLineRewardId);
+        }
+
+        /// <summary>No ads of any kind while the first-run tutorial is on screen.</summary>
+        private static void ShowRewarded(string id)
+        {
+            if (TutorialProgress.IsActive)
+            {
+                return;
+            }
+
+            YandexMetricaService.Send(YandexMetricaService.RewardedRequest, "type", id);
+            YG2.RewardedAdvShow(id);
+        }
+
+        /// <summary>The level rewards act on the level controller; a stale grant (the screen is gone) does nothing.</summary>
+        private static void HandleLevelReward(string id)
+        {
+            LevelRunController levelRun = GameManager.Instance != null
+                ? GameManager.Instance.LevelRun
+                : FindObjectOfType<LevelRunController>(true);
+
+            if (levelRun == null)
+            {
+                return;
+            }
+
+            if (id == LevelContinueRewardId)
+            {
+                levelRun.TryContinue();
+            }
+            else
+            {
+                levelRun.TryDoubleCoins();
+            }
         }
 
         private static void HandleReward(string id)
         {
+            YandexMetricaService.Send(YandexMetricaService.RewardedSuccess, "type", id);
+
+            if (id == LevelContinueRewardId || id == LevelDoubleRewardId)
+            {
+                HandleLevelReward(id);
+                return;
+            }
+
+            if (id == ShopCoinsRewardId)
+            {
+                MetaProgress.AddCoins(CoinPackCatalog.AdReward);
+                return;
+            }
+
             BoosterController boosters = GameManager.Instance != null
                 ? GameManager.Instance.Boosters
                 : FindObjectOfType<BoosterController>(true);

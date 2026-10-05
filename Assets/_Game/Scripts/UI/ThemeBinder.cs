@@ -116,7 +116,7 @@ namespace BlockPuzzle.UI
                 pauseButton = GameObject.Find("PauseButton");
             }
 
-            PaintHudIconButton(shopButton);
+            // The shop pill is always green (see HudShopButton); only pause follows the theme accent.
             PaintHudIconButton(pauseButton);
         }
 

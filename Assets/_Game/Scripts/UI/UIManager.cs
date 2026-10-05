@@ -38,6 +38,7 @@ namespace BlockPuzzle.UI
         [SerializeField] private RectTransform boardPanel;
         [SerializeField] private RectTransform gridArea;
         [SerializeField] private RectTransform spawnArea;
+        [SerializeField] private RectTransform boosterBar;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private ShapeSpawner shapeSpawner;
 
@@ -74,6 +75,7 @@ namespace BlockPuzzle.UI
             RectTransform boardPanelRect,
             RectTransform gridAreaRect,
             RectTransform spawnAreaRect,
+            RectTransform boosterBarRect,
             GridManager grid,
             ShapeSpawner spawner)
         {
@@ -83,6 +85,7 @@ namespace BlockPuzzle.UI
             boardPanel = boardPanelRect;
             gridArea = gridAreaRect;
             spawnArea = spawnAreaRect;
+            boosterBar = boosterBarRect;
             gridManager = grid;
             shapeSpawner = spawner;
         }
@@ -159,11 +162,15 @@ namespace BlockPuzzle.UI
             bool isPortrait = Screen.width <= Screen.height;
 
             float spawnHeight = ResolveSpawnHeight(safeHeight, isPortrait);
-            ApplySpawnAreaLayout(spawnHeight);
+            float bannerReserve = GameTheme.ActiveBannerReserve;
+            ApplySpawnAreaLayout(spawnHeight, bannerReserve);
 
             float topReserved = ResolveTopReservedHeight();
-            float spawnReserved = SpawnBottomPadding + spawnHeight;
-            float availableHeight = safeHeight - topReserved - spawnReserved - SectionGap * 2f;
+            float boosterReserved = boosterBar != null
+                ? BoosterBar.BarHeight + BoosterBar.TrayGap + BoosterBar.BoardGap
+                : 0f;
+            float spawnReserved = SpawnBottomPadding + bannerReserve + spawnHeight;
+            float availableHeight = safeHeight - topReserved - spawnReserved - boosterReserved - SectionGap * 2f;
             float availableWidth = safeWidth - SideMargin * 2f;
             float maxBoardOuter = Mathf.Min(availableWidth, availableHeight);
             maxBoardOuter = Mathf.Max(maxBoardOuter, MinCellSize * GameTheme.GridSize);
@@ -176,7 +183,14 @@ namespace BlockPuzzle.UI
             float boardSize = GameTheme.GridSize * cellSize + (GameTheme.GridSize - 1) * spacing;
             float panelSize = boardSize + BoardPadding * 2f;
 
-            float zoneMin = spawnReserved + SectionGap;
+            // Desktop / landscape: pin the tray to the board column so figures are not
+            // stretched across the whole monitor. Portrait keeps the full-width tray.
+            if (!isPortrait)
+            {
+                ApplySpawnAreaLayout(spawnHeight, bannerReserve, panelSize);
+            }
+
+            float zoneMin = spawnReserved + boosterReserved + SectionGap;
             float zoneMax = safeHeight - topReserved - SectionGap;
             float zoneCenter = (zoneMin + zoneMax) * 0.5f;
             float boardAnchoredY = zoneCenter - safeHeight * 0.5f;
@@ -192,6 +206,8 @@ namespace BlockPuzzle.UI
             gridArea.pivot = new Vector2(0.5f, 0.5f);
             gridArea.anchoredPosition = Vector2.zero;
             gridArea.sizeDelta = new Vector2(boardSize, boardSize);
+
+            ApplyBoosterBarLayout(spawnHeight, bannerReserve, panelSize, boardAnchoredY, safeHeight);
 
             if (gridManager != null)
             {
@@ -228,13 +244,47 @@ namespace BlockPuzzle.UI
                 : DefaultMatchWidthOrHeight;
         }
 
-        private void ApplySpawnAreaLayout(float height)
+        private void ApplySpawnAreaLayout(float height, float bannerReserve, float compactWidth = -1f)
         {
+            spawnArea.pivot = new Vector2(0.5f, 0f);
+            spawnArea.anchoredPosition = new Vector2(0f, SpawnBottomPadding + bannerReserve);
+
+            if (compactWidth > 0f)
+            {
+                spawnArea.anchorMin = new Vector2(0.5f, 0f);
+                spawnArea.anchorMax = new Vector2(0.5f, 0f);
+                spawnArea.sizeDelta = new Vector2(compactWidth, height);
+                return;
+            }
+
             spawnArea.anchorMin = new Vector2(0f, 0f);
             spawnArea.anchorMax = new Vector2(1f, 0f);
-            spawnArea.pivot = new Vector2(0.5f, 0f);
-            spawnArea.anchoredPosition = new Vector2(0f, SpawnBottomPadding);
             spawnArea.sizeDelta = new Vector2(-(SideMargin * 2f), height);
+        }
+
+        private void ApplyBoosterBarLayout(
+            float spawnHeight,
+            float bannerReserve,
+            float panelSize,
+            float boardAnchoredY,
+            float safeHeight)
+        {
+            if (boosterBar == null)
+            {
+                return;
+            }
+
+            boosterBar.anchorMin = new Vector2(0f, 0f);
+            boosterBar.anchorMax = new Vector2(1f, 0f);
+            boosterBar.pivot = new Vector2(0.5f, 0f);
+
+            float spawnTop = SpawnBottomPadding + bannerReserve + spawnHeight;
+            float minY = spawnTop + BoosterBar.TrayGap;
+            float boardBottom = safeHeight * 0.5f + boardAnchoredY - panelSize * 0.5f;
+            float desiredY = boardBottom - BoosterBar.BoardGap - BoosterBar.BarHeight;
+
+            boosterBar.anchoredPosition = new Vector2(0f, Mathf.Max(minY, desiredY));
+            boosterBar.sizeDelta = new Vector2(-(SideMargin * 2f), BoosterBar.BarHeight);
         }
 
         private static float ResolveSpawnHeight(float safeHeight, bool isPortrait)
@@ -322,6 +372,11 @@ namespace BlockPuzzle.UI
                 {
                     spawnArea = safeArea.Find("SpawnArea") as RectTransform;
                 }
+
+                if (boosterBar == null)
+                {
+                    boosterBar = safeArea.Find("BoosterBar") as RectTransform;
+                }
             }
 
             if (gridArea == null && boardPanel != null)
@@ -347,6 +402,15 @@ namespace BlockPuzzle.UI
             if (spawnArea == null && shapeSpawner != null)
             {
                 spawnArea = shapeSpawner.transform as RectTransform;
+            }
+
+            if (boosterBar == null)
+            {
+                BoosterBar bar = FindObjectOfType<BoosterBar>(true);
+                if (bar != null)
+                {
+                    boosterBar = (RectTransform)bar.transform;
+                }
             }
         }
 

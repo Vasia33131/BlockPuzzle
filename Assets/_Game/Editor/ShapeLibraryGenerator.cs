@@ -30,6 +30,7 @@ namespace BlockPuzzle.EditorTools
             var existing = AssetDatabase.LoadAssetAtPath<ShapeLibrary>(AssetPath);
             if (existing != null && existing.CatalogVersion == ShapeCatalog.Version)
             {
+                EnsurePack1(existing);
                 return existing;
             }
 
@@ -43,20 +44,9 @@ namespace BlockPuzzle.EditorTools
             ShapeLibrary library = ScriptableObject.CreateInstance<ShapeLibrary>();
             AssetDatabase.CreateAsset(library, AssetPath);
 
-            List<BlockShape> shapes = ShapeCatalog.CreateDefaultShapes();
-            foreach (BlockShape shape in shapes)
-            {
-                AssetDatabase.AddObjectToAsset(shape, library);
-            }
-
             var serialized = new SerializedObject(library);
-            SerializedProperty list = serialized.FindProperty("shapes");
-            list.arraySize = shapes.Count;
-            for (int i = 0; i < shapes.Count; i++)
-            {
-                list.GetArrayElementAtIndex(i).objectReferenceValue = shapes[i];
-            }
-
+            WriteShapeList(serialized, "shapes", ShapeCatalog.CreateDefaultShapes(), library);
+            WriteShapeList(serialized, "pack1", ShapeCatalog.CreatePack1Shapes(), library);
             serialized.FindProperty("catalogVersion").intValue = ShapeCatalog.Version;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
@@ -64,6 +54,44 @@ namespace BlockPuzzle.EditorTools
             AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
 
             return AssetDatabase.LoadAssetAtPath<ShapeLibrary>(AssetPath);
+        }
+
+        private static void EnsurePack1(ShapeLibrary library)
+        {
+            if (library == null)
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(library);
+            SerializedProperty list = serialized.FindProperty("pack1");
+            if (list != null && list.arraySize > 0)
+            {
+                return;
+            }
+
+            WriteShapeList(serialized, "pack1", ShapeCatalog.CreatePack1Shapes(), library);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void WriteShapeList(
+            SerializedObject serialized,
+            string propertyName,
+            List<BlockShape> shapes,
+            ShapeLibrary library)
+        {
+            foreach (BlockShape shape in shapes)
+            {
+                AssetDatabase.AddObjectToAsset(shape, library);
+            }
+
+            SerializedProperty list = serialized.FindProperty(propertyName);
+            list.arraySize = shapes.Count;
+            for (int i = 0; i < shapes.Count; i++)
+            {
+                list.GetArrayElementAtIndex(i).objectReferenceValue = shapes[i];
+            }
         }
     }
 }

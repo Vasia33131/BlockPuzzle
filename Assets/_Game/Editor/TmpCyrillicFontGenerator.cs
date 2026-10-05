@@ -8,58 +8,22 @@ using TMPro;
 namespace BlockPuzzle.EditorTools
 {
     /// <summary>
-    /// LiberationSans SDF ships without Cyrillic. This bakes a static fallback atlas
-    /// with the Russian alphabet (including «ф» in «Конфеты» and «Ё» in «СЧЁТ») and wires it
-    /// into TMP Settings plus the default font's fallback table.
+    /// A static LiberationSans atlas with the Russian alphabet (including «ф» in «Конфеты» and «Ё» in «СЧЁТ»).
+    /// It was the Cyrillic fallback before the game moved to Montserrat, which covers every character the UI
+    /// prints. It is no longer wired in automatically and lives outside Resources, so it stays out of the
+    /// build; BlockPuzzle/Build Size/Check Fonts adds it back as a fallback only when Montserrat misses a
+    /// character the game uses.
     /// </summary>
-    [InitializeOnLoad]
     public static class TmpCyrillicFontGenerator
     {
         public const string SourceFontPath = "Assets/TextMesh Pro/Fonts/LiberationSans.ttf";
-        public const string AssetPath = "Assets/_Game/Resources/Fonts/LiberationSans-Cyrillic SDF.asset";
+        public const string AssetPath = "Assets/_Game/Fonts/LiberationSans-Cyrillic SDF.asset";
         public const string SettingsPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
-        public const string DefaultFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
 
-        private const string SessionKey = "BlockPuzzle.TmpCyrillicFont.Static512";
+        /// <summary>Where the stock LiberationSans assets go when they leave the Resources folder.</summary>
+        public const string DefaultFontPath = "Assets/TextMesh Pro/Fonts/LiberationSans SDF.asset";
 
-        static TmpCyrillicFontGenerator()
-        {
-            EditorApplication.delayCall += RunOnLoad;
-        }
-
-        private static void RunOnLoad()
-        {
-            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
-            {
-                EditorApplication.delayCall += RunOnLoad;
-                return;
-            }
-
-            if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                return;
-            }
-
-            bool missing = !File.Exists(AssetPath);
-            if (!missing && SessionState.GetBool(SessionKey, false))
-            {
-                return;
-            }
-
-            SessionState.SetBool(SessionKey, true);
-            EnsureAsset();
-        }
-
-        [MenuItem("Tools/Block Puzzle/Ensure Cyrillic TMP Font", priority = 41)]
-        public static void EnsureFromMenu()
-        {
-            TMP_FontAsset font = EnsureAsset();
-            if (font != null)
-            {
-                Debug.Log("[Block Puzzle] Cyrillic TMP fallback is ready: " + AssetPath);
-            }
-        }
-
+        /// <summary>Builds the asset when it is missing (or stale) and returns it.</summary>
         public static TMP_FontAsset EnsureAsset()
         {
             Font source = AssetDatabase.LoadAssetAtPath<Font>(SourceFontPath);
@@ -82,7 +46,6 @@ namespace BlockPuzzle.EditorTools
                 fontAsset = CreateAsset(source);
             }
 
-            WireFallbacks(fontAsset);
             return fontAsset;
         }
 
@@ -142,66 +105,8 @@ namespace BlockPuzzle.EditorTools
                    || fontAsset.atlasWidth > 512
                    || fontAsset.atlasHeight > 512
                    || !fontAsset.HasCharacter('\u0444', false, false)
-                   || !fontAsset.HasCharacter('\u0401', false, false);
-        }
-
-        private static void WireFallbacks(TMP_FontAsset cyrillic)
-        {
-            if (cyrillic == null)
-            {
-                return;
-            }
-
-            AppendFallback(
-                AssetDatabase.LoadAssetAtPath<TMP_Settings>(SettingsPath),
-                "m_fallbackFontAssets",
-                cyrillic);
-
-            AppendFallback(
-                AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(DefaultFontPath),
-                "m_FallbackFontAssetTable",
-                cyrillic);
-        }
-
-        private static void AppendFallback(Object host, string propertyName, TMP_FontAsset fallback)
-        {
-            if (host == null || fallback == null)
-            {
-                return;
-            }
-
-            var serialized = new SerializedObject(host);
-            SerializedProperty list = serialized.FindProperty(propertyName);
-            if (list == null || !list.isArray)
-            {
-                return;
-            }
-
-            bool alreadyPresent = false;
-            for (int i = list.arraySize - 1; i >= 0; i--)
-            {
-                Object value = list.GetArrayElementAtIndex(i).objectReferenceValue;
-                if (value == null)
-                {
-                    list.DeleteArrayElementAtIndex(i);
-                    continue;
-                }
-
-                if (value == fallback)
-                {
-                    alreadyPresent = true;
-                }
-            }
-
-            if (!alreadyPresent)
-            {
-                int index = list.arraySize;
-                list.arraySize = index + 1;
-                list.GetArrayElementAtIndex(index).objectReferenceValue = fallback;
-            }
-
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(host);
+                   || !fontAsset.HasCharacter('\u0401', false, false)
+                   || !fontAsset.HasCharacter('\u00d7', false, false);
         }
 
         /// <summary>Russian alphabet plus punctuation used in the UI (СЧЁТ, Конфеты, 1–2, «—»).</summary>
@@ -221,6 +126,7 @@ namespace BlockPuzzle.EditorTools
             text.Append('\u2116');
             text.Append('\u00AB');
             text.Append('\u00BB');
+            text.Append('\u00D7');
             return text.ToString();
         }
     }

@@ -14,6 +14,12 @@ namespace BlockPuzzle.Core
         [SerializeField] private string displayName = "Shape";
         [SerializeField] private Color color = Color.cyan;
 
+        [Tooltip("Index into the active theme block palette. Negative means use the stored colour.")]
+        [SerializeField] private int paletteIndex = -1;
+
+        [Tooltip("When set, the figure always uses the active theme's starting-block colour.")]
+        [SerializeField] private bool usesStartingColor;
+
         [Tooltip("Cell offsets of the figure. X grows to the right, Y grows downwards.")]
         [SerializeField] private Vector2Int[] cells = { Vector2Int.zero };
 
@@ -24,7 +30,32 @@ namespace BlockPuzzle.Core
         private int cachedHeight = -1;
 
         public string DisplayName => displayName;
-        public Color Color => color;
+        public int PaletteIndex => paletteIndex;
+        public bool UsesStartingColor => usesStartingColor;
+
+        /// <summary>
+        /// Live colour of the figure: starting blocks follow the theme, catalog pieces
+        /// follow <see cref="GameTheme.Pastel"/>, authored colours are remapped when they
+        /// match a known palette entry.
+        /// </summary>
+        public Color Color
+        {
+            get
+            {
+                if (usesStartingColor)
+                {
+                    return GameTheme.StartingBlock;
+                }
+
+                if (paletteIndex >= 0)
+                {
+                    return GameTheme.Pastel(paletteIndex);
+                }
+
+                return GameTheme.ResolvePlayableColor(color);
+            }
+        }
+
         public float Weight => Mathf.Max(0.01f, weight);
         public IReadOnlyList<Vector2Int> Cells => cells;
         public int BlockCount => cells.Length;
@@ -54,9 +85,19 @@ namespace BlockPuzzle.Core
             shape.name = displayName;
             shape.displayName = displayName;
             shape.color = color;
+            shape.paletteIndex = -1;
+            shape.usesStartingColor = false;
             shape.weight = weight;
             shape.cells = cells != null && cells.Length > 0 ? cells : new[] { Vector2Int.zero };
             shape.Normalize();
+            return shape;
+        }
+
+        /// <summary>Catalog figure whose colour tracks palette slot <paramref name="paletteIndex"/>.</summary>
+        public static BlockShape Create(string displayName, int paletteIndex, float weight, params Vector2Int[] cells)
+        {
+            BlockShape shape = Create(displayName, GameTheme.Pastel(paletteIndex), weight, cells);
+            shape.paletteIndex = paletteIndex;
             return shape;
         }
 
@@ -67,6 +108,14 @@ namespace BlockPuzzle.Core
         public static BlockShape CreateFromMatrix(string displayName, Color color, float weight, bool[,] matrix)
         {
             return Create(displayName, color, weight, MatrixToCells(matrix));
+        }
+
+        /// <summary>Starting-layout figure that always uses the active theme's starting-block colour.</summary>
+        public static BlockShape CreateStartingFromMatrix(string displayName, float weight, bool[,] matrix)
+        {
+            BlockShape shape = Create(displayName, GameTheme.StartingBlock, weight, MatrixToCells(matrix));
+            shape.usesStartingColor = true;
+            return shape;
         }
 
         /// <summary>Converts an occupancy matrix into the cell offsets of a figure.</summary>

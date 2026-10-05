@@ -1,26 +1,23 @@
 using UnityEngine;
 using BlockPuzzle.Core;
 using BlockPuzzle.Managers;
+using BlockPuzzle.UI;
 using YG;
 
 namespace BlockPuzzle.Platform
 {
     /// <summary>
     /// Reports Game Ready to Yandex (requirement 1.19.2) at the moment the game is
-    /// actually playable: the scene is built, the run has started and the tray already
-    /// holds figures the player can drag. autoGRA is off in SettingsYG2, so this is the
-    /// only call — it never fires on a black screen, and it is not made from Awake
-    /// before the UI exists.
+    /// actually interactive: the scene is built and the main menu is on screen and
+    /// accepts taps. autoGRA is off in SettingsYG2, so this is the only call — it never
+    /// fires on a black screen, and it is not made from Awake before the UI exists.
+    /// A game that skips the menu (GameManager.openMenuOnStart off) reports once it is playing.
     /// </summary>
     [DefaultExecutionOrder(120)]
     public sealed class YandexGameReadyService : MonoBehaviour
     {
-        /// <summary>How long we wait for the first batch of figures before reporting anyway.</summary>
-        private const float FiguresTimeout = 3f;
-
         private bool reported;
-        private bool playableLastFrame;
-        private float playingSince = -1f;
+        private bool interactiveLastFrame;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCreate()
@@ -42,39 +39,35 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
-            GameManager manager = GameManager.Instance;
-            if (manager == null || manager.State != GameState.Playing)
+            if (!IsInteractive())
             {
-                playingSince = -1f;
-                playableLastFrame = false;
+                interactiveLastFrame = false;
                 return;
             }
 
-            if (playingSince < 0f)
+            if (!interactiveLastFrame)
             {
-                playingSince = Time.realtimeSinceStartup;
-            }
-
-            bool figuresReady = manager.Spawner != null && manager.Spawner.RemainingCount > 0;
-
-            // Safety net: the portal loader must never keep spinning because the tray
-            // failed to fill for some reason of ours.
-            if (!figuresReady && Time.realtimeSinceStartup - playingSince < FiguresTimeout)
-            {
-                playableLastFrame = false;
-                return;
-            }
-
-            if (!playableLastFrame)
-            {
-                // One frame of margin, so the board is on screen and not just in memory.
-                playableLastFrame = true;
+                // One frame of margin, so the screen is drawn and not just in memory.
+                interactiveLastFrame = true;
                 return;
             }
 
             reported = true;
             YG2.GameReadyAPI();
             enabled = false;
+        }
+
+        private static bool IsInteractive()
+        {
+            GameManager manager = GameManager.Instance;
+            if (manager == null)
+            {
+                return false;
+            }
+
+            return manager.State == GameState.MainMenu
+                ? MainMenuPanel.IsInteractive
+                : manager.State == GameState.Playing;
         }
     }
 }

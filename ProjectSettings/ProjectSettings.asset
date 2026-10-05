@@ -12,7 +12,7 @@ PlayerSettings:
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: YourCompany
+  companyName: BlockPuzzle Team
   productName: Block Puzzle
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
@@ -141,7 +141,7 @@ PlayerSettings:
   loadStoreDebugModeEnabled: 0
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
-  bundleVersion: 1.0.0.0
+  bundleVersion: 2.0.0.0
   preloadedAssets: []
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -530,7 +530,7 @@ PlayerSettings:
   switchPresenceGroupId: 
   switchLogoHandling: 0
   switchReleaseVersion: 0
-  switchDisplayVersion: 1.0.0
+  switchDisplayVersion: 2.0.0
   switchStartupUserAccount: 0
   switchSupportedLanguagesMask: 0
   switchLogoType: 0
@@ -695,17 +695,17 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
-    Android: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    LinuxHeadlessSimulation: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    Nintendo Switch: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    PS4: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    PS5: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    Standalone: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    WebGL: YandexGamesPlatform_yg;PLUGIN_YG_2;TMP_YG2;RU_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    Windows Store Apps: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    XboxOne: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    iPhone: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
-    tvOS: PLUGIN_YG_2;YandexGamesPlatform_yg;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg
+    Android: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    LinuxHeadlessSimulation: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    Nintendo Switch: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    PS4: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    PS5: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    Standalone: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    WebGL: PLUGIN_YG_2;TMP_YG2;RU_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    Windows Store Apps: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    XboxOne: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    iPhone: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
+    tvOS: PLUGIN_YG_2;TMP_YG2;InterstitialAdv_yg;StickyAdv_yg;Localization_yg;AutoTranslateLangs_yg;Authorization_yg;Leaderboards_yg;Storage_yg;Payments_yg;RewardedAdv_yg;YandexGamesPlatform_yg;ServerTime_yg;Metrica_yg;Review_yg;GameLabel_yg
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
@@ -721,6 +721,7 @@ PlayerSettings:
     PS5: 1
     QNX: 1
     Stadia: 1
+    Standalone: 4
     VisionOS: 1
     WebGL: 4
     Windows Store Apps: 1
@@ -739,7 +740,7 @@ PlayerSettings:
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
   metroPackageName: BlockPuzzles
-  metroPackageVersion: 
+  metroPackageVersion: 2.0.0.0
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
@@ -747,7 +748,7 @@ PlayerSettings:
   metroCertificateNotAfter: 0000000000000000
   metroApplicationDescription: BlockPuzzles
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: Block Puzzle
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0
@@ -775,7 +776,7 @@ PlayerSettings:
   XboxOneGameOsOverridePath: 
   XboxOnePackagingOverridePath: 
   XboxOneAppManifestOverridePath: 
-  XboxOneVersion: 1.0.0.0
+  XboxOneVersion: 2.0.0.0
   XboxOnePackageEncryption: 0
   XboxOnePackageUpdateGranularity: 2
   XboxOneDescription: 

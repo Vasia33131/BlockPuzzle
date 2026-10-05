@@ -14,11 +14,17 @@ namespace BlockPuzzle.Grid
         private readonly bool[,] occupied;
         private readonly Color[,] colors;
 
+        // Level tags on occupied cells; always false in the endless mode.
+        private readonly bool[,] crystal;
+        private readonly bool[,] marked;
+
         public GridModel(int size = GameTheme.GridSize)
         {
             Size = Mathf.Max(1, size);
             occupied = new bool[Size, Size];
             colors = new Color[Size, Size];
+            crystal = new bool[Size, Size];
+            marked = new bool[Size, Size];
         }
 
         public int Size { get; }
@@ -52,6 +58,80 @@ namespace BlockPuzzle.Grid
         public bool IsOccupied(int row, int col) => IsInside(row, col) && occupied[row, col];
 
         public Color GetColor(int row, int col) => colors[row, col];
+
+        /// <summary>True when the cell is a block that hides a crystal.</summary>
+        public bool IsCrystal(int row, int col) => IsOccupied(row, col) && crystal[row, col];
+
+        /// <summary>True when the cell is a block flagged as a goal cell.</summary>
+        public bool IsMarked(int row, int col) => IsOccupied(row, col) && marked[row, col];
+
+        /// <summary>Flags an occupied cell as a crystal and/or a goal cell. The flags go away with the block.</summary>
+        public void SetTags(int row, int col, bool isCrystal, bool isMarked)
+        {
+            if (!IsOccupied(row, col))
+            {
+                return;
+            }
+
+            crystal[row, col] = isCrystal;
+            marked[row, col] = isMarked;
+        }
+
+        /// <summary>Repaints an occupied cell without changing occupancy. Used when the theme swaps palettes.</summary>
+        public void SetColor(int row, int col, Color color)
+        {
+            if (IsOccupied(row, col))
+            {
+                colors[row, col] = color;
+            }
+        }
+
+        /// <summary>Independent copy of occupancy and colours, safe to restore later.</summary>
+        public BoardSnapshot Capture() => new BoardSnapshot(Size, occupied, colors, crystal, marked);
+
+        /// <summary>Replaces the live board with <paramref name="snapshot"/>. Size must match.</summary>
+        public void Restore(BoardSnapshot snapshot)
+        {
+            if (snapshot == null || snapshot.Size != Size)
+            {
+                return;
+            }
+
+            snapshot.CopyTo(occupied, colors, crystal, marked);
+        }
+
+        /// <summary>
+        /// Empties one full line. <paramref name="index"/> is 0..<see cref="Size"/>-1;
+        /// <paramref name="horizontal"/> true clears a row, false a column.
+        /// </summary>
+        public void ClearLine(int index, bool horizontal)
+        {
+            if (index < 0 || index >= Size)
+            {
+                return;
+            }
+
+            if (horizontal)
+            {
+                for (int col = 0; col < Size; col++)
+                {
+                    occupied[index, col] = false;
+                    colors[index, col] = default;
+                    crystal[index, col] = false;
+                    marked[index, col] = false;
+                }
+            }
+            else
+            {
+                for (int row = 0; row < Size; row++)
+                {
+                    occupied[row, index] = false;
+                    colors[row, index] = default;
+                    crystal[row, index] = false;
+                    marked[row, index] = false;
+                }
+            }
+        }
 
         /// <summary>True when every cell of <paramref name="shape"/> fits on empty ground.</summary>
         public bool CanPlace(BlockShape shape, Vector2Int origin)
@@ -222,6 +302,8 @@ namespace BlockPuzzle.Grid
             {
                 occupied[cell.y, cell.x] = false;
                 colors[cell.y, cell.x] = default;
+                crystal[cell.y, cell.x] = false;
+                marked[cell.y, cell.x] = false;
             }
         }
 
@@ -233,6 +315,8 @@ namespace BlockPuzzle.Grid
                 {
                     occupied[row, col] = false;
                     colors[row, col] = default;
+                    crystal[row, col] = false;
+                    marked[row, col] = false;
                 }
             }
         }

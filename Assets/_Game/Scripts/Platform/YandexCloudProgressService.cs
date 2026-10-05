@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using BlockPuzzle.Core;
+using BlockPuzzle.Levels;
 using BlockPuzzle.Managers;
 using YG;
 
@@ -9,7 +10,7 @@ namespace BlockPuzzle.Platform
     /// <summary>
     /// Mirrors the durable progress between PlayerPrefs and the Yandex save
     /// (requirements 1.9, 1.11, 1.13.3): no-ads, owned palettes and figure packs, the
-    /// selected palette, the record and the sound switch.
+    /// selected palette, the record and the music / sound effects switches.
     ///
     /// PlayerPrefs stays as the local cache and as the guest fallback, but the account
     /// copy is what makes a purchase reappear on another device. Restoring happens on
@@ -30,7 +31,6 @@ namespace BlockPuzzle.Platform
         public static event Action Restored;
 
         private ScoreManager scoreManager;
-        private AudioManager audioManager;
         private int cloudBestScore;
         private bool hasCloudData;
 
@@ -58,6 +58,9 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData += HandleSdkData;
             PlayerProgress.Changed += PushProgress;
+            PlayerLevel.Changed += PushProgress;
+            LevelProgress.Changed += PushProgress;
+            SoundSettings.Changed += PushProgress;
             BindManagers();
 
             if (YG2.isSDKEnabled)
@@ -70,12 +73,15 @@ namespace BlockPuzzle.Platform
         {
             YG2.onGetSDKData -= HandleSdkData;
             PlayerProgress.Changed -= PushProgress;
+            PlayerLevel.Changed -= PushProgress;
+            LevelProgress.Changed -= PushProgress;
+            SoundSettings.Changed -= PushProgress;
             UnbindManagers();
         }
 
         private void Update()
         {
-            if (scoreManager == null || audioManager == null)
+            if (scoreManager == null)
             {
                 BindManagers();
             }
@@ -107,12 +113,14 @@ namespace BlockPuzzle.Platform
 
             PlayerProgress.Restore(saves.adsRemoved, saves.ownedThemes, saves.ownedPacks, saves.themeId);
             ApplyCloudBestScore();
+            PlayerLevel.Restore(saves.playerLevel, saves.xp);
+            LevelProgress.Restore(saves.levelsUnlocked, saves.levelStars);
 
             // A save that was never written holds default flags, so it must not
             // overwrite a choice the player already made locally.
             if (saves.idSave > 0)
             {
-                ApplyCloudMuted(saves.muted);
+                ApplyCloudMuted(saves);
             }
 
             GameTheme.ApplyFromProgress();
@@ -136,7 +144,7 @@ namespace BlockPuzzle.Platform
                 return;
             }
 
-            YG2.SaveProgress();
+            CloudSaveGate.Request();
         }
 
         private bool ApplyToSaves(SavesYG saves)
@@ -160,10 +168,34 @@ namespace BlockPuzzle.Platform
                 changed = true;
             }
 
-            bool muted = ResolveLocalMuted();
-            if (saves.muted != muted)
+            // Further along wins: an older account copy is never allowed to overwrite it.
+            if (PlayerLevel.Level > saves.playerLevel
+                || (PlayerLevel.Level == saves.playerLevel && PlayerLevel.Xp > saves.xp))
             {
-                saves.muted = muted;
+                saves.playerLevel = PlayerLevel.Level;
+                saves.xp = PlayerLevel.Xp;
+                changed = true;
+            }
+
+            // Campaign progress only grows: the higher open level and the per-level best stars win, so
+            // a push that runs before the account copy is merged (a purchase restore inside
+            // HandleSdkData) cannot lower what the save already holds.
+            if (LevelProgress.Unlocked > saves.levelsUnlocked)
+            {
+                saves.levelsUnlocked = LevelProgress.Unlocked;
+                changed = true;
+            }
+
+            changed |= Write(ref saves.levelStars, LevelProgress.MergedStarsText(saves.levelStars));
+
+            bool musicMuted = SoundSettings.MusicMuted;
+            bool sfxMuted = SoundSettings.SfxMuted;
+            bool legacyMuted = musicMuted && sfxMuted;
+            if (saves.musicMuted != musicMuted || saves.sfxMuted != sfxMuted || saves.muted != legacyMuted)
+            {
+                saves.musicMuted = musicMuted;
+                saves.sfxMuted = sfxMuted;
+                saves.muted = legacyMuted;
                 changed = true;
             }
 
@@ -199,11 +231,10 @@ namespace BlockPuzzle.Platform
             scoreManager?.RestoreBestScore(cloudBestScore);
         }
 
-        private void ApplyCloudMuted(bool muted)
+        /// <summary>An older save only has <c>muted</c>, which meant both switches off.</summary>
+        private static void ApplyCloudMuted(SavesYG saves)
         {
-            PlayerPrefs.SetInt(AudioManager.MutedKey, muted ? 1 : 0);
-            PlayerPrefs.Save();
-            audioManager?.RestoreMuted(muted);
+            SoundSettings.Restore(saves.musicMuted || saves.muted, saves.sfxMuted || saves.muted);
         }
 
         private int ResolveLocalBestScore()
@@ -211,13 +242,6 @@ namespace BlockPuzzle.Platform
             return scoreManager != null
                 ? scoreManager.BestScore
                 : PlayerPrefs.GetInt(ScoreManager.BestScoreKey, 0);
-        }
-
-        private bool ResolveLocalMuted()
-        {
-            return audioManager != null
-                ? audioManager.IsMuted
-                : PlayerPrefs.GetInt(AudioManager.MutedKey, 0) == 1;
         }
 
         private void BindManagers()
@@ -239,22 +263,6 @@ namespace BlockPuzzle.Platform
                 }
             }
 
-            if (audioManager != null)
-            {
-                return;
-            }
-
-            AudioManager audio = GameManager.Instance != null
-                ? GameManager.Instance.Audio
-                : FindObjectOfType<AudioManager>(true);
-
-            if (audio == null)
-            {
-                return;
-            }
-
-            audioManager = audio;
-            audioManager.MutedChanged += HandleMutedChanged;
         }
 
         private void UnbindManagers()
@@ -264,16 +272,8 @@ namespace BlockPuzzle.Platform
                 scoreManager.BestScoreSaved -= HandleBestScoreSaved;
                 scoreManager = null;
             }
-
-            if (audioManager != null)
-            {
-                audioManager.MutedChanged -= HandleMutedChanged;
-                audioManager = null;
-            }
         }
 
         private void HandleBestScoreSaved(int best) => PushProgress();
-
-        private void HandleMutedChanged(bool muted) => PushProgress();
     }
 }

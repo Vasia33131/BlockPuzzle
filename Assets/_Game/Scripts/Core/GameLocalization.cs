@@ -1,4 +1,5 @@
 using System;
+using BlockPuzzle.Levels;
 
 namespace BlockPuzzle.Core
 {
@@ -98,26 +99,58 @@ namespace BlockPuzzle.Core
             return ClassicTheme;
         }
 
-        public static string Combo(int combo, int points)
+        /// <summary>Banner over the board for a multi-line clear; null for a single line.</summary>
+        public static string Praise(int lines)
         {
-            if (combo > 1)
+            switch (lines)
             {
-                return Pick($"КОМБО x{combo}  +{points}", $"COMBO x{combo}  +{points}");
+                case 0:
+                case 1:
+                    return null;
+                case 2:
+                    return Good;
+                case 3:
+                    return Great;
+                case 4:
+                    return Super;
+                default:
+                    return Incredible;
             }
-
-            return $"+{points}";
         }
+
+        public static string Good => Pick("Хорошо!", "Good!");
+        public static string Great => Pick("Отлично!", "Great!");
+        public static string Super => Pick("Супер!", "Super!");
+        public static string Incredible => Pick("Невероятно!", "Incredible!");
+        public static string BoardClearedTitle => Pick("Поле очищено!", "Board cleared!");
+        public static string ComboBanner(int combo) => Pick($"Комбо x{combo}", $"Combo x{combo}");
+        public static string Points(int points) => $"+{points}";
 
         public static string ScorePrefix => Pick("СЧЁТ: ", "SCORE: ");
         public static string BestPrefix => Pick("РЕКОРД: ", "BEST: ");
 
         public static string PauseTitle => Pick("ПАУЗА", "PAUSE");
-        public static string SoundOn => Pick("ЗВУК: ВКЛ", "SOUND: ON");
-        public static string SoundOff => Pick("ЗВУК: ВЫКЛ", "SOUND: OFF");
+        public static string SoundOn => Pick("ЗВУКИ: ВКЛ", "SOUNDS: ON");
+        public static string SoundOff => Pick("ЗВУКИ: ВЫКЛ", "SOUNDS: OFF");
+        public static string MusicOn => Pick("МУЗЫКА: ВКЛ", "MUSIC: ON");
+        public static string MusicOff => Pick("МУЗЫКА: ВЫКЛ", "MUSIC: OFF");
         public static string Resume => Pick("ПРОДОЛЖИТЬ", "RESUME");
         public static string Restart => Pick("НАЧАТЬ ЗАНОВО", "RESTART");
 
-        public static string ShopTitle => Pick("МАГАЗИН", "SHOP");
+        public static string Home => Pick("ДОМОЙ", "HOME");
+
+        public static string SettingsTitle => Pick("НАСТРОЙКИ", "SETTINGS");
+        public static string HowToPlay => Pick("КАК ИГРАТЬ", "HOW TO PLAY");
+        public static string OurGames => Pick("Наши игры", "Our games");
+        public static string Close => Pick("ЗАКРЫТЬ", "CLOSE");
+        public static string VersionLabel(string version) => Pick($"Версия {version}", $"Version {version}");
+        public static string EndlessMode => Pick("БЕСКОНЕЧНЫЙ РЕЖИМ", "ENDLESS MODE");
+        public static string Levels => Pick("УРОВНИ", "LEVELS");
+        public static string MenuTitle => Pick("БЛОК-ПАЗЛ", "BLOCK PUZZLE");
+        public static string MenuEndless => Pick("БЕСКОНЕЧНЫЙ", "ENDLESS");
+        public static string ComingSoon => Pick("Скоро!", "Coming soon!");
+
+        public static string ShopTitle =>Pick("МАГАЗИН", "SHOP");
         public static string Back => Pick("НАЗАД", "BACK");
         public static string NoAds => Pick("Без рекламы", "No ads");
         public static string ShapePack => Pick("Набор фигурок", "Shape pack");
@@ -130,11 +163,77 @@ namespace BlockPuzzle.Core
             "Эти фигуры будут доступны в наборе",
             "These shapes will be added to your set");
         public static string Cancel => Pick("Отмена", "Cancel");
+        public static string Unavailable => Pick("Недоступно", "Unavailable");
+        public static string ShopThemesTitle => Pick("ТЕМЫ ОФОРМЛЕНИЯ", "THEMES");
+        public static string ShopThemesHint => Pick("Меняют цвета поля и фигур", "Change the colors of the board and shapes");
+        public static string ShopTryOn => Pick("Примерить", "Try on");
+
+        /// <summary>One line that sells the mood of a theme on its shop card.</summary>
+        public static string ThemeTagline(string themeId)
+        {
+            if (themeId == ThemeConfig.OceanId)
+            {
+                return Pick("Морская свежесть: бирюза, лёд и глубина", "Sea breeze: turquoise, ice and deep blue");
+            }
+
+            if (themeId == ThemeConfig.CandyId)
+            {
+                return Pick("Сладкие блоки как мармелад и глазурь", "Sweet blocks like jelly candy and icing");
+            }
+
+            return Pick("Яркие блоки на тёмном поле", "Bright blocks on a dark board");
+        }
+
+        /// <summary>Ribbon on a theme card; null for none.</summary>
+        public static string ThemeBadge(string themeId)
+        {
+            if (themeId == ThemeConfig.CandyId)
+            {
+                return Pick("ХИТ", "HOT");
+            }
+
+            if (themeId == ThemeConfig.OceanId)
+            {
+                return Pick("НОВИНКА", "NEW");
+            }
+
+            return null;
+        }
+        public static string ShopPackTitle => Pick("+4 НОВЫЕ ФИГУРЫ", "+4 NEW SHAPES");
+        public static string ShopPackHint => Pick("Навсегда добавляются в игру", "Added to the game forever");
+        public static string ShopCoinsTitle => Pick("МОНЕТЫ", "COINS");
+        public static string ShopCoinsHint => Pick("Тратьте на темы оформления", "Spend them on themes");
+        public static string ShopCoinAdCaption => Pick("За просмотр рекламы", "For watching an ad");
+        public static string ShopCoinAdAction => Pick("Смотреть", "Watch");
+
+        /// <summary>Caption under a coin pack: small, popular, best value.</summary>
+        public static string ShopCoinPackCaption(string productId)
+        {
+            switch (productId)
+            {
+                case CoinPackCatalog.MediumId:
+                    return Pick("Популярный", "Popular");
+                case CoinPackCatalog.LargeId:
+                    return Pick("Самый выгодный", "Best value");
+                default:
+                    return Pick("Горсть монет", "A handful of coins");
+            }
+        }
+
+        public static string ShopNoAdsTitle => Pick("БЕЗ РЕКЛАМЫ", "NO ADS");
+        public static string ShopNoAdsHint => Pick(
+            "Убирает баннер и рекламу между партиями. Бонусы за просмотр остаются",
+            "Removes the banner and the ads between games. Bonuses for watching stay");
+        public static string ShopNoAdsCaption => Pick("Навсегда", "Forever");
+        public static string ThemePreviewHint => Pick("Нажмите, чтобы вернуться в магазин", "Tap to return to the shop");
         public static string ClassicTheme => Pick("Классика", "Classic");
         public static string OceanTheme => Pick("Океан", "Ocean");
         public static string CandyTheme => Pick("Конфеты", "Candy");
 
-        public static string GameOverTitle => Pick("ПОРАЖЕНИЕ", "GAME OVER");
+        public static string GameOverTitle => Pick("Нет ходов!", "No moves left!");
+        public static string PlayAgain => Pick("ИГРАТЬ СНОВА", "PLAY AGAIN");
+        public static string ToRecord(int points) => Pick($"До рекорда: {points}", $"To beat your best: {points}");
+        public static string RecordTied => Pick("Рекорд повторён!", "You matched your best!");
         public static string NewBest => Pick("НОВЫЙ РЕКОРД!", "NEW BEST!");
         public static string ScoreCaption => Pick("СЧЁТ", "SCORE");
         public static string BestCaption => Pick("РЕКОРД", "BEST");
@@ -145,10 +244,25 @@ namespace BlockPuzzle.Core
         public static string ContinueAd => Pick("Продолжить — реклама", "Continue — ad");
         public static string ContinueHint => Pick("Уберём 1–2 линии", "We'll clear 1–2 lines");
 
-        public static string WatchAd => Pick("Смотреть", "Watch ad");
+        // Game-over card: the main button names the ad outright (Yandex rewarded requirement).
+        public static string GameOverContinue => Pick("ПРОДОЛЖИТЬ", "CONTINUE");
+        public static string GameOverContinueCaption => Pick("Реклама · уберём 1–2 линии", "Ad · we'll clear 1–2 lines");
+        public static string GameOverRestart => Pick("Начать заново", "Start over");
+        public static string GameOverMenu => Pick("В меню", "Menu");
+        public static string GameOverAuthHint => Pick(
+            "Войдите, чтобы попасть в таблицу лидеров",
+            "Sign in to join the leaderboard");
+        public static string SignInShort => Pick("Войти", "Sign in");
+
+        public static string WatchAd => Pick("Смотреть рекламу", "Watch ad");
         public static string AdBonusWarning => Pick(
             "Бонус за просмотр рекламы",
             "Bonus for watching an ad");
+        // Short captions under the booster buttons.
+        public static string BoosterUndo => Pick("Отмена", "Undo");
+        public static string BoosterExtra => Pick("Фигура", "Piece");
+        public static string BoosterClear => Pick("Линия", "Line");
+        public static string AdChip => "AD";
         public static string UndoTitle => Pick("Отмена хода", "Undo move");
         public static string UndoBody => Pick(
             "Вернёт последнюю поставленную фигуру на панель.",
@@ -157,9 +271,193 @@ namespace BlockPuzzle.Core
         public static string ExtraBody => Pick(
             "Добавит ещё одну фигуру на панель, если есть свободный слот.",
             "Adds one more shape to the tray if a slot is free.");
+        public static string TutorialHint => Pick(
+            "Перетащи фигуру, чтобы собрать линию",
+            "Drag the shape to complete the line");
+        public static string TutorialDone => Pick("Отлично!", "Great!");
+
         public static string ClearTitle => Pick("Очистка линии", "Clear a line");
         public static string ClearBody => Pick(
             "Уберёт самую заполненную строку или столбец.",
             "Removes the fullest row or column.");
+
+        // ------------------------------------------------------------ meta layer
+
+        public static string DailyRewardTitle => Pick("ЕЖЕДНЕВНАЯ НАГРАДА", "DAILY REWARD");
+        public static string DailyRewardHint => Pick(
+            "Заходи каждый день — награда растёт. Пропуск дня начинает серию заново.",
+            "Come back every day for bigger rewards. Missing a day restarts the streak.");
+        public static string DayLabel(int day) => Pick($"День {day}", $"Day {day}");
+        public static string Claim => Pick("ЗАБРАТЬ", "CLAIM");
+        public static string Claimed => Pick("Получено", "Claimed");
+        public static string DailyClaimedToast => Pick("Награда получена!", "Reward claimed!");
+
+        public static string QuestsTitle => Pick("ЗАДАНИЯ ДНЯ", "DAILY TASKS");
+        public static string QuestsWaiting => Pick("Задания загружаются...", "Loading tasks...");
+        public static string QuestDone => Pick("Готово", "Done");
+        public static string QuestCompletedToast => Pick("Задание выполнено!", "Task complete!");
+
+        public static string QuestText(QuestDef def)
+        {
+            if (def == null)
+            {
+                return string.Empty;
+            }
+
+            int n = def.Target;
+            switch (def.Kind)
+            {
+                case QuestKind.ClearLines:
+                    return Pick(
+                        $"Очисти {n} {Plural(n, "линию", "линии", "линий")}",
+                        $"Clear {n} {(n == 1 ? "line" : "lines")}");
+                case QuestKind.ScoreInRun:
+                    return Pick($"Набери {n} за партию", $"Score {n} in one game");
+                case QuestKind.Combo:
+                    return Pick($"Сделай комбо x{n}", $"Make a x{n} combo");
+                case QuestKind.BoardClear:
+                    return n <= 1
+                        ? Pick("Очисти поле целиком", "Clear the whole board")
+                        : Pick($"Очисти поле целиком {n} раза", $"Clear the whole board {n} times");
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string CoinsEarned(int coins) => Pick(
+            $"+{coins} {Plural(coins, "монета", "монеты", "монет")}",
+            $"+{coins} {(coins == 1 ? "coin" : "coins")}");
+        public static string BuyForCoinsConfirm => Pick("Купить?", "Buy?");
+
+        // ------------------------------------------------------------ player profile
+
+        public static string PlayerFallbackName => Pick("Игрок", "Player");
+        public static string SignInToSave => Pick("Войдите, чтобы сохранять прогресс", "Sign in to save your progress");
+        public static string NewLevelTitle => Pick("Новый уровень!", "New level!");
+        public static string PlayerLevelCaption(int level) => Pick($"Уровень {level}", $"Level {level}");
+
+        // ------------------------------------------------------------ levels
+
+        public static string LevelTitle(int level) => Pick($"Уровень {level}", $"Level {level}");
+        public static string MovesCaption => Pick("ХОДЫ", "MOVES");
+        public static string LevelGoalHeader => Pick("ЦЕЛЬ", "GOAL");
+
+        /// <summary>Text of the goal card shown before a level: "Collect 10 crystals in 20 moves".</summary>
+        public static string LevelGoalCard(LevelDefinition level) => LevelGoalText(level, true);
+
+        /// <summary>The goal alone, without the move limit ("Collect 10 crystals"): the level map card lists the limit on its own line.</summary>
+        public static string LevelGoalShort(LevelDefinition level) => LevelGoalText(level, false);
+
+        private static string LevelGoalText(LevelDefinition level, bool withLimit)
+        {
+            if (level == null)
+            {
+                return string.Empty;
+            }
+
+            int n = level.GoalTarget;
+            int moves = withLimit ? level.MoveLimit : 0;
+            string ruLimit = moves > 0 ? $" за {moves} {Plural(moves, "ход", "хода", "ходов")}" : string.Empty;
+            string enLimit = moves > 0 ? $" in {moves} {(moves == 1 ? "move" : "moves")}" : string.Empty;
+
+            switch (level.GoalType)
+            {
+                case LevelGoalType.Gems:
+                    return Pick(
+                        $"Собери {n} {Plural(n, "кристалл", "кристалла", "кристаллов")}{ruLimit}",
+                        $"Collect {n} {(n == 1 ? "crystal" : "crystals")}{enLimit}");
+                case LevelGoalType.ClearMarked:
+                    return Pick(
+                        $"Очисти все отмеченные клетки{ruLimit}",
+                        $"Clear every marked cell{enLimit}");
+                case LevelGoalType.Lines:
+                    return Pick(
+                        $"Очисти {n} {Plural(n, "линию", "линии", "линий")}{ruLimit}",
+                        $"Clear {n} {(n == 1 ? "line" : "lines")}{enLimit}");
+                default:
+                    return Pick(
+                        $"Набери {n} {Plural(n, "очко", "очка", "очков")}{ruLimit}",
+                        $"Score {n} {(n == 1 ? "point" : "points")}{enLimit}");
+            }
+        }
+
+        /// <summary>HUD goal counter. Crystals get an icon instead of a caption, so theirs is just "3/10".</summary>
+        public static string LevelGoalCounter(LevelGoalType goal, int progress, int target)
+        {
+            switch (goal)
+            {
+                case LevelGoalType.Gems:
+                    return $"{progress}/{target}";
+                case LevelGoalType.ClearMarked:
+                    return $"{progress}/{target}";
+                case LevelGoalType.Lines:
+                    return Pick($"Линии {progress}/{target}", $"Lines {progress}/{target}");
+                default:
+                    return Pick($"Очки {progress}/{target}", $"Score {progress}/{target}");
+            }
+        }
+
+        // Level map
+
+        public static string ChapterTitle(int chapter)
+        {
+            string[] ru = { "Начало", "Кристальный лес", "Закатные дюны", "Глубина", "Звёздный путь" };
+            string[] en = { "The Beginning", "Crystal Woods", "Sunset Dunes", "The Deep", "Star Trail" };
+            int index = Math.Max(0, Math.Min(chapter - 1, ru.Length - 1));
+            return Pick($"Глава {chapter} · {ru[index]}", $"Chapter {chapter} · {en[index]}");
+        }
+
+        public static string LevelsSoon => Pick("Скоро новые уровни!", "New levels coming soon!");
+        public static string LevelsAllDone => Pick("Все пройдены", "All complete");
+        public static string LevelLockedHint => Pick("Сначала пройди предыдущий уровень", "Finish the previous level first");
+        public static string LevelPlay => Pick("ИГРАТЬ", "PLAY");
+        public static string SpecialLevel => Pick("Особый уровень", "Special level");
+        public static string BestResult => Pick("ЛУЧШИЙ РЕЗУЛЬТАТ", "BEST RESULT");
+        public static string MoveLimitLine(int moves) => moves > 0
+            ? Pick($"Ходов: {moves}", $"Moves: {moves}")
+            : Pick("Без ограничения ходов", "No move limit");
+
+        public static string LevelCompleteTitle => Pick("Уровень пройден!", "Level complete!");
+        public static string LevelFailedTitle => Pick("Уровень не пройден", "Level failed");
+        public static string FailOutOfMoves => Pick("Закончились ходы", "Out of moves");
+        public static string FailNoSpace => Pick("Нет места для фигур", "No room for the shapes");
+        public static string MovesBonus => Pick("Бонус за ходы", "Move bonus");
+        public static string NextLevel => Pick("ДАЛЬШЕ", "NEXT");
+        public static string Retry => Pick("ЗАНОВО", "RETRY");
+        public static string DoubleCoinsAd => Pick("x2 монеты — реклама", "x2 coins — ad");
+        public static string DoubleCoinsHint => Pick("Удвоим награду", "Doubles your reward");
+        public static string MoreMovesAd => Pick("Ещё 5 ходов — реклама", "5 more moves — ad");
+        public static string MoreMovesHint => Pick("Продолжим уровень", "Keep playing the level");
+        public static string XpEarned(int xp) => Pick($"+{xp} опыта", $"+{xp} XP");
+        public static string LeaveLevelTitle => Pick("Выйти из уровня?", "Leave the level?");
+        public static string LeaveLevelBody => Pick(
+            "Прогресс этой попытки будет потерян.",
+            "The progress of this attempt will be lost.");
+        public static string LeaveLevelYes => Pick("ВЫЙТИ", "LEAVE");
+        public static string LeaveLevelNo => Pick("ОСТАТЬСЯ", "STAY");
+        public static string RestartConfirmTitle => Pick("Начать заново?", "Start over?");
+        public static string RestartConfirmBody => Pick(
+            "Точно хотите начать заново? Весь прогресс этой партии будет потерян.",
+            "Are you sure you want to start over? All progress of this game will be lost.");
+        public static string RestartConfirmYes => Pick("СБРОСИТЬ", "RESET");
+        public static string RestartConfirmNo => Pick("ОТМЕНА", "CANCEL");
+
+        /// <summary>Russian plural: 1 линию, 2 линии, 5 линий.</summary>
+        private static string Plural(int n, string one, string few, string many)
+        {
+            int mod100 = System.Math.Abs(n) % 100;
+            int mod10 = mod100 % 10;
+            if (mod100 >= 11 && mod100 <= 14)
+            {
+                return many;
+            }
+
+            if (mod10 == 1)
+            {
+                return one;
+            }
+
+            return mod10 >= 2 && mod10 <= 4 ? few : many;
+        }
     }
 }

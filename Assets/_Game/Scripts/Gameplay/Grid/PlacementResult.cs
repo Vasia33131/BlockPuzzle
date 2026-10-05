@@ -7,17 +7,21 @@ namespace BlockPuzzle.Grid
     {
         public static readonly PlacementResult Failed = new PlacementResult(false, 0, 0, 0);
 
-        public PlacementResult(bool success, int blocksPlaced, int linesCleared, int cellsCleared)
+        public PlacementResult(bool success, int blocksPlaced, int linesCleared, int cellsCleared, bool boardCleared = false)
         {
             Success = success;
             BlocksPlaced = blocksPlaced;
             LinesCleared = linesCleared;
             CellsCleared = cellsCleared;
+            BoardCleared = boardCleared;
         }
 
         public bool Success { get; }
         public int BlocksPlaced { get; }
         public int LinesCleared { get; }
         public int CellsCleared { get; }
+
+        /// <summary>True when the clear left no occupied cell on the board.</summary>
+        public bool BoardCleared { get; }
     }
 }

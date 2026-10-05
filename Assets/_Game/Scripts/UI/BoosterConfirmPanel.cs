@@ -19,6 +19,18 @@ namespace BlockPuzzle.UI
         private const float ShowDuration = 0.24f;
         private const float HideDuration = 0.16f;
 
+        // Mobile sizes in reference units: buttons 140 tall (the main one 180) and 28 apart, captions 52, body 42, small 34.
+        private const float CardHeight = 1080f;
+        private const float ButtonWidth = 620f;
+        private const float CancelHeight = 140f;
+        private const float WatchHeight = 180f;
+        private const float ButtonGap = 28f;
+        private const float CancelBottom = 44f;
+        private const float ButtonFont = 52f;
+        private const float BodyFont = 42f;
+        private const float WarningFont = 34f;
+        private const float TextWidth = 680f;
+
         [SerializeField] private GameManager gameManager;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private RectTransform card;
@@ -77,6 +89,7 @@ namespace BlockPuzzle.UI
             Unbind();
             gameManager = manager;
             ResolveRefs();
+            ApplyLayout();
 
             Listen(watchButton, HandleWatchClicked);
             Listen(cancelButton, HandleCancelClicked);
@@ -248,6 +261,7 @@ namespace BlockPuzzle.UI
             GameTween.Kill(canvasGroup);
             canvasGroup.blocksRaycasts = true;
             canvasGroup.interactable = true;
+            SfxHub.Play(SfxId.UiOpen);
             GameTween.Fade(canvasGroup, 1f, ShowDuration, TweenEase.OutQuad, unscaled: true);
 
             if (card != null)
@@ -285,6 +299,7 @@ namespace BlockPuzzle.UI
             }
 
             GameTween.Kill(canvasGroup);
+            SfxHub.Play(SfxId.UiClose);
             GameTween.Fade(canvasGroup, 0f, HideDuration, TweenEase.InQuad, unscaled: true);
 
             if (card != null)
@@ -342,6 +357,67 @@ namespace BlockPuzzle.UI
             if (gameManager != null && gameManager.State == GameState.Playing)
             {
                 gameManager.Spawner?.SetInteractable(true);
+            }
+        }
+
+        /// <summary>
+        /// A scene baked earlier holds this panel with smaller buttons and text, so the mobile sizes are applied
+        /// here on every bind instead of only where the panel is built.
+        /// </summary>
+        private void ApplyLayout()
+        {
+            if (card == null)
+            {
+                return;
+            }
+
+            card.sizeDelta = new Vector2(card.sizeDelta.x, CardHeight);
+            PlaceText(bodyLabel, -290f, 190f, BodyFont);
+            PlaceText(warningLabel, -490f, 110f, WarningFont);
+            PlaceButton(cancelButton, CancelBottom, CancelHeight);
+            PlaceButton(watchButton, CancelBottom + CancelHeight + ButtonGap, WatchHeight);
+
+            // The only place that tells the player a booster costs an ad.
+            AdChip.Ensure(watchButton);
+        }
+
+        private static void PlaceText(TMP_Text label, float top, float height, float fontSize)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                label.rectTransform,
+                new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, top),
+                new Vector2(TextWidth, height));
+            label.fontSize = fontSize;
+            label.enableAutoSizing = false;
+            label.enableWordWrapping = true;
+        }
+
+        private static void PlaceButton(Button button, float bottom, float height)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                (RectTransform)button.transform,
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, bottom),
+                new Vector2(ButtonWidth, height));
+
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.fontSize = ButtonFont;
+                UIFactory.FitText(label, 0.7f);
             }
         }
 

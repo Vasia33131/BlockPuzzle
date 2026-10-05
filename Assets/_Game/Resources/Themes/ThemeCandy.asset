@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ThemeCandy
   m_EditorClassIdentifier: 
   id: theme_candy
+  coinPrice: -1
   displayName: "\u041A\u043E\u043D\u0444\u0435\u0442\u044B"
   backgroundTop: {r: 0.2901961, g: 0.09803922, b: 0.25882354, a: 1}
   backgroundBottom: {r: 0.16862746, g: 0.05882353, b: 0.14117648, a: 1}

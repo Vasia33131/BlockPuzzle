@@ -1,4 +1,6 @@
+using System;
 using UnityEngine;
+using BlockPuzzle.Core;
 using BlockPuzzle.Grid;
 using BlockPuzzle.Pieces;
 
@@ -17,7 +19,7 @@ namespace BlockPuzzle.Managers
     /// </summary>
     public class BoosterController : MonoBehaviour
     {
-        public const int FreeBonusScoreStep = 250;
+        public const int FreeBonusScoreStep = 3000;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private GridManager grid;
@@ -43,8 +45,20 @@ namespace BlockPuzzle.Managers
         public bool CanClearLine =>
             grid != null && grid.Model != null && grid.Model.OccupiedCount > 0;
 
-        /// <summary>Unused free charge for this run, if any. Not persisted.</summary>
+        /// <summary>True once this run has spent its continue.</summary>
+        public bool ContinueUsed => continueUsed;
+
+        /// <summary>Unused free charge for this run, if any. Saved with the run.</summary>
         public FreeBoosterType? FreeCharge => freeCharge;
+
+        /// <summary>Last <see cref="FreeBonusScoreStep"/> multiple that granted a charge.</summary>
+        public int LastGrantedThreshold => lastGrantedThreshold;
+
+        /// <summary>
+        /// Raised after a booster changed the board, the tray or the run's booster state
+        /// (continue spent, free charge granted or burnt), so the run can be saved.
+        /// </summary>
+        public event Action RunChanged;
 
         public void Configure(
             GameManager manager,
@@ -81,7 +95,34 @@ namespace BlockPuzzle.Managers
             lastGrantedThreshold = 0;
         }
 
+        /// <summary>
+        /// Brings back the booster state of a saved run. Call before the score is restored,
+        /// so the restored score does not look like a threshold crossed just now.
+        /// </summary>
+        public void RestoreRun(bool usedContinue, FreeBoosterType? charge, int grantedThreshold)
+        {
+            continueUsed = usedContinue;
+            freeCharge = charge.HasValue && Enum.IsDefined(typeof(FreeBoosterType), charge.Value) ? charge : null;
+            lastGrantedThreshold = Mathf.Max(0, grantedThreshold);
+        }
+
         public bool HasFree(FreeBoosterType type) => freeCharge == type;
+
+        /// <summary>Boosters of this type the player keeps between runs (daily reward, tasks).</summary>
+        public static int StockCount(FreeBoosterType type) => MetaProgress.BoosterCount(ToMeta(type));
+
+        public static MetaBooster ToMeta(FreeBoosterType type)
+        {
+            switch (type)
+            {
+                case FreeBoosterType.Extra:
+                    return MetaBooster.Extra;
+                case FreeBoosterType.Clear:
+                    return MetaBooster.Clear;
+                default:
+                    return MetaBooster.Undo;
+            }
+        }
 
         /// <summary>
         /// Applies the matching booster and burns the charge. False when this is
@@ -89,28 +130,7 @@ namespace BlockPuzzle.Managers
         /// </summary>
         public bool TryConsumeFree(FreeBoosterType type)
         {
-            if (freeCharge != type)
-            {
-                return false;
-            }
-
-            bool applied;
-            switch (type)
-            {
-                case FreeBoosterType.Undo:
-                    applied = CanUndo && TryUndo();
-                    break;
-                case FreeBoosterType.Extra:
-                    applied = CanExtraPiece && TryExtraPiece();
-                    break;
-                case FreeBoosterType.Clear:
-                    applied = CanClearLine && TryClearFullestLine();
-                    break;
-                default:
-                    return false;
-            }
-
-            if (!applied)
+            if (freeCharge != type || !TryApply(type))
             {
                 return false;
             }
@@ -118,17 +138,48 @@ namespace BlockPuzzle.Managers
             freeCharge = null;
             int score = scoreManager != null ? scoreManager.Score : 0;
             lastGrantedThreshold = score / FreeBonusScoreStep;
+            RunChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// Applies one booster from the stock and takes it away. False when the stock is
+        /// empty or <c>Can*</c> is false — the stock stays.
+        /// </summary>
+        public bool TryConsumeStock(FreeBoosterType type)
+        {
+            if (StockCount(type) <= 0 || !TryApply(type))
+            {
+                return false;
+            }
+
+            MetaProgress.TrySpendBooster(ToMeta(type));
+            return true;
+        }
+
+        private bool TryApply(FreeBoosterType type)
+        {
+            switch (type)
+            {
+                case FreeBoosterType.Undo:
+                    return CanUndo && TryUndo();
+                case FreeBoosterType.Extra:
+                    return CanExtraPiece && TryExtraPiece();
+                case FreeBoosterType.Clear:
+                    return CanClearLine && TryClearFullestLine();
+                default:
+                    return false;
+            }
         }
 
         public bool TryUndo()
         {
-            return undoBuffer != null && undoBuffer.TryUndo();
+            return Notify(undoBuffer != null && undoBuffer.TryUndo());
         }
 
         public bool TryExtraPiece()
         {
-            return spawner != null && spawner.TryGrantExtraShape();
+            return Notify(spawner != null && spawner.TryGrantExtraShape());
         }
 
         /// <summary>Clears the single fullest row or column. False when the board is empty.</summary>
@@ -142,6 +193,8 @@ namespace BlockPuzzle.Managers
             grid.ClearLineAndRedraw(index, horizontal);
             undoBuffer?.RefreshSettled();
             spawner?.RefreshPlayability();
+            SfxHub.Play(SfxId.BoosterUse);
+            RunChanged?.Invoke();
             gameOverHandler?.Evaluate();
             return true;
         }
@@ -165,8 +218,20 @@ namespace BlockPuzzle.Managers
             gameOverHandler?.Arm();
             spawner?.SetInteractable(true);
             spawner?.RefreshPlayability();
+            RunChanged?.Invoke();
             gameOverHandler?.Evaluate();
             return true;
+        }
+
+        private bool Notify(bool applied)
+        {
+            if (applied)
+            {
+                SfxHub.Play(SfxId.BoosterUse);
+                RunChanged?.Invoke();
+            }
+
+            return applied;
         }
 
         private void ClearTopLines(int maxLines)
@@ -337,8 +402,9 @@ namespace BlockPuzzle.Managers
                 return;
             }
 
-            freeCharge = (FreeBoosterType)Random.Range(0, 3);
+            freeCharge = (FreeBoosterType)UnityEngine.Random.Range(0, 3);
             lastGrantedThreshold = threshold;
+            RunChanged?.Invoke();
         }
     }
 }

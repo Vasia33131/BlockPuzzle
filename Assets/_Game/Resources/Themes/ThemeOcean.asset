@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ThemeOcean
   m_EditorClassIdentifier: 
   id: theme_ocean
+  coinPrice: -1
   displayName: "\u041E\u043A\u0435\u0430\u043D"
   backgroundTop: {r: 0.043137256, g: 0.23921569, b: 0.36078432, a: 1}
   backgroundBottom: {r: 0.007843138, g: 0.11764706, b: 0.16862746, a: 1}

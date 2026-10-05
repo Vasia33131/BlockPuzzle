@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using BlockPuzzle.Core;
+using BlockPuzzle.Levels;
 using BlockPuzzle.Vfx;
 
 namespace BlockPuzzle.Grid
@@ -32,6 +33,7 @@ namespace BlockPuzzle.Grid
 
         [Header("Effects")]
         [SerializeField] private SparkBurst sparks;
+        [SerializeField] private BoardFeedback feedback;
 
         private GridModel model;
         private GridCellView[,] cells;
@@ -39,17 +41,49 @@ namespace BlockPuzzle.Grid
         private readonly List<Vector2Int> startingOrigins = new List<Vector2Int>();
         private readonly List<Color> clearedColors = new List<Color>();
         private List<BlockShape> startingShapes;
+        private IReadOnlyList<Vector2Int> scriptedLayout;
+        private BlockShape scriptedCell;
         private Canvas parentCanvas;
 
         /// <summary>Raised after a figure has been successfully dropped on the board.</summary>
         public event Action<PlacementResult> ShapePlaced;
 
+        /// <summary>
+        /// Raised when a clear (a completed line, or a booster wiping a line) removed blocks that
+        /// carry a crystal or a goal mark: (cells of crystals, cells of marks). A drop raises it
+        /// just before <see cref="ShapePlaced"/>. Never raised in the endless mode.
+        /// </summary>
+        public event Action<IReadOnlyList<Vector2Int>, IReadOnlyList<Vector2Int>> GoalCellsCleared;
+
         public GridModel Model => model;
         public SparkBurst Sparks => sparks;
+
+        /// <summary>
+        /// Clear celebration layer. Built on first use as well, because the game manager may
+        /// wire it up before this component has woken.
+        /// </summary>
+        public BoardFeedback Feedback
+        {
+            get
+            {
+                if (feedback == null && Application.isPlaying)
+                {
+                    BindOrBuildFeedback();
+                }
+
+                return feedback;
+            }
+        }
         public int Size => size;
         public float CellSize => cellSize;
         public float Pitch => cellSize + spacing;
         public RectTransform BoardRoot => boardRoot;
+
+        /// <summary>
+        /// Extra rule on top of free cells, used by the tutorial to accept its figure only on
+        /// the target spot. Null means every free spot is allowed.
+        /// </summary>
+        public Func<BlockShape, Vector2Int, bool> PlacementGate { get; set; }
 
         /// <summary>Optional authored cell. When null, cells are built in code.</summary>
         public void SetCellPrefab(GridCellView prefab) => cellPrefab = prefab;
@@ -57,6 +91,62 @@ namespace BlockPuzzle.Grid
         private void Awake()
         {
             Initialize();
+        }
+
+        private void OnEnable()
+        {
+            GameTheme.Changed += ApplyThemeColors;
+            ApplyThemeColors();
+        }
+
+        private void OnDisable()
+        {
+            GameTheme.Changed -= ApplyThemeColors;
+        }
+
+        /// <summary>
+        /// Repaints empty cells, remaps occupied colours onto the active palette and
+        /// refreshes cube patterns without restarting the board.
+        /// </summary>
+        public void ApplyThemeColors()
+        {
+            startingShapes = null;
+            if (cells == null)
+            {
+                return;
+            }
+
+            if (model != null)
+            {
+                for (int row = 0; row < size; row++)
+                {
+                    for (int col = 0; col < size; col++)
+                    {
+                        if (model.IsOccupied(row, col))
+                        {
+                            model.SetColor(row, col, GameTheme.RemapPlacedColor(model.GetColor(row, col)));
+                        }
+                    }
+                }
+            }
+
+            for (int row = 0; row < size; row++)
+            {
+                for (int col = 0; col < size; col++)
+                {
+                    GridCellView view = cells[row, col];
+                    if (view == null)
+                    {
+                        continue;
+                    }
+
+                    view.RefreshEmptyColor();
+                    if (model != null && model.IsOccupied(row, col))
+                    {
+                        view.SetFilled(model.GetColor(row, col), model.IsCrystal(row, col), model.IsMarked(row, col));
+                    }
+                }
+            }
         }
 
         public void Initialize()
@@ -71,6 +161,7 @@ namespace BlockPuzzle.Grid
             BindOrBuildCells();
             BindOrBuildHighlight();
             BindOrBuildSparks();
+            BindOrBuildFeedback();
             RedrawAll();
         }
 
@@ -147,7 +238,8 @@ namespace BlockPuzzle.Grid
             return boardRoot.TransformPoint(local);
         }
 
-        public bool CanPlace(BlockShape shape, Vector2Int origin) => model != null && model.CanPlace(shape, origin);
+        public bool CanPlace(BlockShape shape, Vector2Int origin) =>
+            model != null && model.CanPlace(shape, origin) && (PlacementGate == null || PlacementGate(shape, origin));
 
         public bool HasPlacementFor(BlockShape shape) => model != null && model.HasPlacementFor(shape);
 
@@ -178,7 +270,7 @@ namespace BlockPuzzle.Grid
                 }
             }
 
-            highlight.Show(highlightedCells, model.CanPlace(shape, origin));
+            highlight.Show(highlightedCells, CanPlace(shape, origin));
         }
 
         public void HideDropHighlight()
@@ -194,7 +286,7 @@ namespace BlockPuzzle.Grid
         /// <summary>Commits the figure to the board and resolves completed lines.</summary>
         public PlacementResult PlaceShape(BlockShape shape, Vector2Int origin)
         {
-            if (shape == null || !model.CanPlace(shape, origin))
+            if (shape == null || !CanPlace(shape, origin))
             {
                 return PlacementResult.Failed;
             }
@@ -208,24 +300,107 @@ namespace BlockPuzzle.Grid
             }
 
             LineClearResult lines = model.FindCompletedLines();
+            bool boardCleared = false;
             if (lines.HasLines)
             {
                 // The colours have to be read before the model forgets them: the sparks and the
                 // fade-out are painted in the shade of the blocks that are being removed.
                 CaptureClearedColors(lines);
+                CollectGoalCells(lines.Cells, out List<Vector2Int> crystalCells, out List<Vector2Int> markedCells);
                 model.ApplyClear(lines);
+                boardCleared = model.OccupiedCount == 0;
                 PlayClearFeedback(lines);
+
+                if (crystalCells != null || markedCells != null)
+                {
+                    GoalCellsCleared?.Invoke(
+                        crystalCells ?? (IReadOnlyList<Vector2Int>)Array.Empty<Vector2Int>(),
+                        markedCells ?? (IReadOnlyList<Vector2Int>)Array.Empty<Vector2Int>());
+                }
             }
 
-            var result = new PlacementResult(true, shape.BlockCount, lines.LineCount, lines.Cells.Count);
+            var result = new PlacementResult(
+                true, shape.BlockCount, lines.LineCount, lines.Cells.Count, boardCleared);
             ShapePlaced?.Invoke(result);
             return result;
+        }
+
+        public BoardSnapshot CaptureBoard() => model?.Capture();
+
+        /// <summary>Restores occupancy and colours from <paramref name="snapshot"/> and redraws every cell.</summary>
+        public void RestoreBoard(BoardSnapshot snapshot)
+        {
+            if (model == null)
+            {
+                return;
+            }
+
+            HideDropHighlight();
+            CancelCellAnimations();
+            model.Restore(snapshot);
+            RedrawAll();
+        }
+
+        /// <summary>
+        /// Clears one row (<paramref name="horizontal"/> true) or column and redraws those cells.
+        /// <paramref name="index"/> is 0..<see cref="Size"/>-1.
+        /// </summary>
+        public void ClearLineAndRedraw(int index, bool horizontal)
+        {
+            if (model == null)
+            {
+                return;
+            }
+
+            // The tags are read before the model wipes them.
+            List<Vector2Int> crystalCells = null;
+            List<Vector2Int> markedCells = null;
+            if (index >= 0 && index < size)
+            {
+                var lineCells = new List<Vector2Int>(size);
+                for (int i = 0; i < size; i++)
+                {
+                    lineCells.Add(horizontal ? new Vector2Int(i, index) : new Vector2Int(index, i));
+                }
+
+                CollectGoalCells(lineCells, out crystalCells, out markedCells);
+            }
+
+            model.ClearLine(index, horizontal);
+
+            if (index < 0 || index >= size)
+            {
+                return;
+            }
+
+            if (horizontal)
+            {
+                for (int col = 0; col < size; col++)
+                {
+                    RedrawCell(new Vector2Int(col, index));
+                }
+            }
+            else
+            {
+                for (int row = 0; row < size; row++)
+                {
+                    RedrawCell(new Vector2Int(index, row));
+                }
+            }
+
+            if (crystalCells != null || markedCells != null)
+            {
+                GoalCellsCleared?.Invoke(
+                    crystalCells ?? (IReadOnlyList<Vector2Int>)Array.Empty<Vector2Int>(),
+                    markedCells ?? (IReadOnlyList<Vector2Int>)Array.Empty<Vector2Int>());
+            }
         }
 
         public void ResetBoard()
         {
             HideDropHighlight();
             sparks?.Clear();
+            feedback?.Clear();
             CancelCellAnimations();
             model.Reset();
             RedrawAll();
@@ -239,7 +414,96 @@ namespace BlockPuzzle.Grid
         public void StartGame()
         {
             ResetBoard();
+
+            if (scriptedLayout != null)
+            {
+                FillScriptedLayout(scriptedLayout);
+                scriptedLayout = null;
+                return;
+            }
+
             ScatterStartingShapes();
+        }
+
+        /// <summary>
+        /// Replaces the random starting figures of the next <see cref="StartGame"/> with the
+        /// given cells (x = column, y = row), painted in the starting-block colour. Used once.
+        /// </summary>
+        public void SetNextLayout(IReadOnlyList<Vector2Int> filledCells) => scriptedLayout = filledCells;
+
+        /// <summary>
+        /// Prepares the board for a level: wipes it and sets up the authored blocks (plain, with a
+        /// crystal, or marked) in the starting-block colour. Nothing is random here.
+        /// </summary>
+        public void StartLevel(LevelDefinition level)
+        {
+            ResetBoard();
+            scriptedLayout = null;
+
+            if (level == null)
+            {
+                return;
+            }
+
+            // A fresh cell every time, so the colour follows the theme that is active now.
+            BlockShape block = BlockShape.CreateStartingFromMatrix("LevelCell", 1f, new[,] { { true } });
+
+            for (int row = 0; row < size; row++)
+            {
+                for (int col = 0; col < size; col++)
+                {
+                    LevelCellType type = level.GetCell(row, col);
+                    if (type == LevelCellType.Empty)
+                    {
+                        continue;
+                    }
+
+                    var cell = new Vector2Int(col, row);
+                    model.Place(block, cell);
+                    bool crystal = type == LevelCellType.Crystal;
+                    bool marked = type == LevelCellType.Marked;
+                    model.SetTags(row, col, crystal, marked);
+                    cells[row, col]?.SetFilled(block.Color, crystal, marked);
+                }
+            }
+        }
+
+        /// <summary>Splits the tagged cells among <paramref name="candidates"/> into crystals and marks; null when there are none.</summary>
+        private void CollectGoalCells(
+            IReadOnlyList<Vector2Int> candidates,
+            out List<Vector2Int> crystalCells,
+            out List<Vector2Int> markedCells)
+        {
+            crystalCells = null;
+            markedCells = null;
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                Vector2Int cell = candidates[i];
+                if (model.IsCrystal(cell.y, cell.x))
+                {
+                    (crystalCells ??= new List<Vector2Int>()).Add(cell);
+                }
+
+                if (model.IsMarked(cell.y, cell.x))
+                {
+                    (markedCells ??= new List<Vector2Int>()).Add(cell);
+                }
+            }
+        }
+
+        private void FillScriptedLayout(IReadOnlyList<Vector2Int> filledCells)
+        {
+            scriptedCell ??= BlockShape.CreateStartingFromMatrix("ScriptedCell", 1f, new[,] { { true } });
+
+            for (int i = 0; i < filledCells.Count; i++)
+            {
+                Vector2Int cell = filledCells[i];
+                if (model.IsInside(cell) && !model.IsOccupied(cell))
+                {
+                    CommitStartingShape(scriptedCell, cell);
+                }
+            }
         }
 
         private void ScatterStartingShapes()
@@ -500,7 +764,10 @@ namespace BlockPuzzle.Grid
 
             if (model.IsOccupied(coordinate))
             {
-                view.SetFilled(model.GetColor(coordinate.y, coordinate.x));
+                view.SetFilled(
+                    model.GetColor(coordinate.y, coordinate.x),
+                    model.IsCrystal(coordinate.y, coordinate.x),
+                    model.IsMarked(coordinate.y, coordinate.x));
             }
             else
             {
@@ -521,9 +788,17 @@ namespace BlockPuzzle.Grid
             }
         }
 
-        /// <summary>Fades the completed cells out and throws sparks of their own colour.</summary>
+        /// <summary>
+        /// Fades the completed cells out, throws sparks of their own colour and flashes the
+        /// lines on the feedback layer.
+        /// </summary>
         private void PlayClearFeedback(LineClearResult lines)
         {
+            if (Application.isPlaying)
+            {
+                Feedback?.PlayLineClear(lines);
+            }
+
             IReadOnlyList<Vector2Int> cleared = lines.Cells;
 
             for (int i = 0; i < cleared.Count; i++)
@@ -590,6 +865,30 @@ namespace BlockPuzzle.Grid
             }
 
             sparks.transform.SetAsLastSibling();
+        }
+
+        /// <summary>
+        /// Picks up the feedback layer baked into the scene or creates it, as the topmost
+        /// child so banners and popups are drawn over the sparks.
+        /// </summary>
+        private void BindOrBuildFeedback()
+        {
+            if (boardRoot == null)
+            {
+                boardRoot = (RectTransform)transform;
+            }
+
+            if (feedback == null)
+            {
+                feedback = boardRoot.GetComponentInChildren<BoardFeedback>(true);
+            }
+
+            if (feedback == null)
+            {
+                feedback = BoardFeedback.Create(boardRoot);
+            }
+
+            feedback.transform.SetAsLastSibling();
         }
     }
 }

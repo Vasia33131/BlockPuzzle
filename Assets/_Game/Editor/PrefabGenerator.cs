@@ -22,6 +22,7 @@ namespace BlockPuzzle.EditorTools
         public const string BlockPiecePath = PrefabFolder + "/BlockPiece.prefab";
         public const string GameOverPanelPath = PrefabFolder + "/GameOverPanel.prefab";
         public const string PausePanelPath = PrefabFolder + "/PausePanel.prefab";
+        public const string ShopPanelPath = PrefabFolder + "/ShopPanel.prefab";
 
         private const float SparkSize = 15f;
 
@@ -31,6 +32,7 @@ namespace BlockPuzzle.EditorTools
             public BlockPiece BlockPiece;
             public GameOverPanel GameOverPanel;
             public PausePanel PausePanel;
+            public ShopPanel ShopPanel;
             public Image Spark;
         }
 
@@ -42,15 +44,17 @@ namespace BlockPuzzle.EditorTools
             DeleteIfExists(BlockPiecePath);
             DeleteIfExists(GameOverPanelPath);
             DeleteIfExists(PausePanelPath);
+            DeleteIfExists(ShopPanelPath);
             EnsureAll();
             AssetDatabase.SaveAssets();
-            Debug.Log("[Block Puzzle] Prefabs regenerated: GridCell, BlockPiece, GameOverPanel, PausePanel, Spark.");
+            Debug.Log("[Block Puzzle] Prefabs regenerated: GridCell, BlockPiece, GameOverPanel, PausePanel, ShopPanel, Spark.");
         }
 
         /// <summary>Creates every gameplay/UI prefab and returns their loaded components.</summary>
         public static PrefabAssets EnsureAll()
         {
             RoundedSpriteGenerator.EnsureAsset();
+            PatternSpriteGenerator.EnsureAssets();
             UIFactory.ClearCache();
             Directory.CreateDirectory(PrefabFolder);
 
@@ -60,6 +64,7 @@ namespace BlockPuzzle.EditorTools
                 BlockPiece = EnsureBlockPiece(),
                 GameOverPanel = EnsureGameOverPanel(),
                 PausePanel = EnsurePausePanel(),
+                ShopPanel = EnsureShopPanel(),
                 Spark = EnsureSpark()
             };
         }
@@ -72,11 +77,13 @@ namespace BlockPuzzle.EditorTools
         {
             DeleteIfExists(GameOverPanelPath);
             DeleteIfExists(PausePanelPath);
+            DeleteIfExists(ShopPanelPath);
             RoundedSpriteGenerator.EnsureAsset();
             UIFactory.ClearCache();
             Directory.CreateDirectory(PrefabFolder);
             EnsureGameOverPanel();
             EnsurePausePanel();
+            EnsureShopPanel();
         }
 
         private static void DeleteIfExists(string path)
@@ -114,9 +121,14 @@ namespace BlockPuzzle.EditorTools
         public static GridCellView EnsureGridCell()
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(GridCellPath);
-            if (existing != null)
+            if (existing != null && existing.transform.Find("Fill/Pattern") != null)
             {
                 return existing.GetComponent<GridCellView>();
+            }
+
+            if (existing != null)
+            {
+                DeleteIfExists(GridCellPath);
             }
 
             // Built under a throwaway parent so Create can position a real template cell.
@@ -137,9 +149,14 @@ namespace BlockPuzzle.EditorTools
         public static BlockPiece EnsureBlockPiece()
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(BlockPiecePath);
-            if (existing != null)
+            if (existing != null && existing.transform.Find("Pattern") != null)
             {
                 return existing.GetComponent<BlockPiece>();
+            }
+
+            if (existing != null)
+            {
+                DeleteIfExists(BlockPiecePath);
             }
 
             var host = new GameObject("BlockPieceHost", typeof(RectTransform));
@@ -179,7 +196,9 @@ namespace BlockPuzzle.EditorTools
         public static PausePanel EnsurePausePanel()
         {
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PausePanelPath);
-            if (existing != null && existing.transform.Find("Card/SoundButton") != null)
+            if (existing != null &&
+                existing.transform.Find("Card/SoundButton") != null &&
+                existing.transform.Find("Card/ShopButton") == null)
             {
                 return existing.GetComponent<PausePanel>();
             }
@@ -195,6 +214,31 @@ namespace BlockPuzzle.EditorTools
             panel.transform.SetParent(null, false);
 
             PausePanel saved = SaveComponent<PausePanel>(panel.gameObject, PausePanelPath);
+            Object.DestroyImmediate(host);
+            return saved;
+        }
+
+        public static ShopPanel EnsureShopPanel()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(ShopPanelPath);
+            if (existing != null &&
+                existing.transform.Find("Card") != null &&
+                existing.transform.Find("Card/NoAdsCard") == null)
+            {
+                return existing.GetComponent<ShopPanel>();
+            }
+
+            if (existing != null)
+            {
+                DeleteIfExists(ShopPanelPath);
+            }
+
+            var host = new GameObject("PanelHost", typeof(RectTransform));
+            ShopPanel panel = GameSceneFactory.BuildShopPanelHierarchy((RectTransform)host.transform);
+            panel.gameObject.name = "ShopPanel";
+            panel.transform.SetParent(null, false);
+
+            ShopPanel saved = SaveComponent<ShopPanel>(panel.gameObject, ShopPanelPath);
             Object.DestroyImmediate(host);
             return saved;
         }

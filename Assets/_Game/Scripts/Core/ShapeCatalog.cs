@@ -6,23 +6,22 @@ namespace BlockPuzzle.Core
     /// <summary>
     /// Built-in set of figures. Used whenever no authored <see cref="ShapeLibrary"/>
     /// asset is assigned, so the game is playable straight out of the box.
-    /// Every figure is painted from <see cref="GameTheme.PastelPalette"/>: shapes of the
-    /// same family share a shade, which keeps the board readable without turning it into
-    /// a rainbow.
+    /// Every figure is painted from <see cref="GameTheme.Pastel"/> so a theme change
+    /// recolors newly dealt pieces without baking a palette into the catalog.
     /// </summary>
     public static class ShapeCatalog
     {
         /// <summary>Bumped whenever the figures or their colours change, so baked assets refresh.</summary>
-        public const int Version = 2;
+        public const int Version = 3;
 
-        private static readonly Color Blue = GameTheme.Pastel(0);
-        private static readonly Color Sky = GameTheme.Pastel(1);
-        private static readonly Color Aqua = GameTheme.Pastel(2);
-        private static readonly Color Mint = GameTheme.Pastel(3);
-        private static readonly Color Butter = GameTheme.Pastel(4);
-        private static readonly Color Peach = GameTheme.Pastel(5);
-        private static readonly Color Rose = GameTheme.Pastel(6);
-        private static readonly Color Lavender = GameTheme.Pastel(7);
+        private const int Blue = 0;
+        private const int Sky = 1;
+        private const int Aqua = 2;
+        private const int Mint = 3;
+        private const int Butter = 4;
+        private const int Peach = 5;
+        private const int Rose = 6;
+        private const int Lavender = 7;
 
         public static List<BlockShape> CreateDefaultShapes()
         {
@@ -66,6 +65,35 @@ namespace BlockPuzzle.Core
             };
 
             return shapes;
+        }
+
+        /// <summary>
+        /// Extra figures for <see cref="PlayerProgress.ShapesPack1Id"/>. Slight variations of
+        /// catalog pieces so the paid tray feels new without changing the free set.
+        /// </summary>
+        public static List<BlockShape> CreatePack1Shapes()
+        {
+            return new List<BlockShape>
+            {
+                BlockShape.Create("Plus", Sky, 0.55f,
+                    C(1, 0),
+                    C(0, 1), C(1, 1), C(2, 1),
+                    C(1, 2)),
+
+                BlockShape.Create("U", Butter, 0.65f,
+                    C(0, 0), C(2, 0),
+                    C(0, 1), C(1, 1), C(2, 1)),
+
+                BlockShape.Create("T Right", Lavender, 0.7f,
+                    C(0, 0),
+                    C(0, 1), C(1, 1),
+                    C(0, 2)),
+
+                BlockShape.Create("Rect 2x3", Peach, 0.5f,
+                    C(0, 0), C(1, 0),
+                    C(0, 1), C(1, 1),
+                    C(0, 2), C(1, 2))
+            };
         }
 
         private static Vector2Int C(int x, int y) => new Vector2Int(x, y);

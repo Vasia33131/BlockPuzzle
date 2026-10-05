@@ -5,14 +5,15 @@ using BlockPuzzle.Core;
 namespace BlockPuzzle.Pieces
 {
     /// <summary>
-    /// One square of a figure. Stores its offset inside the figure and owns the two
-    /// images (body plus highlight) that give the block a bit of depth.
+    /// One square of a figure. Stores its offset inside the figure and owns the body,
+    /// tiled pattern overlay and highlight that give the block depth and theme texture.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class BlockPiece : MonoBehaviour
     {
         [SerializeField] private Vector2Int offset;
         [SerializeField] private Image body;
+        [SerializeField] private Image pattern;
         [SerializeField] private Image highlight;
 
         public Vector2Int Offset => offset;
@@ -51,6 +52,7 @@ namespace BlockPuzzle.Pieces
                 piece.body.pixelsPerUnitMultiplier = 1f;
             }
 
+            piece.EnsurePattern();
             piece.highlight = UIFactory.CreateImage("Highlight", rect, Color.white);
             piece.highlight.raycastTarget = false;
 
@@ -72,8 +74,11 @@ namespace BlockPuzzle.Pieces
                 -(cellOffset.y - (shapeBounds.y - 1) * 0.5f) * pitch);
             rect.localScale = Vector3.one;
 
+            EnsurePattern();
+
             if (highlight != null)
             {
+                highlight.transform.SetAsLastSibling();
                 RectTransform highlightRect = highlight.rectTransform;
                 highlightRect.anchorMin = new Vector2(0f, 1f);
                 highlightRect.anchorMax = new Vector2(1f, 1f);
@@ -99,6 +104,14 @@ namespace BlockPuzzle.Pieces
                 light.a = 0.55f;
                 highlight.color = light;
             }
+
+            ApplyPattern();
+        }
+
+        public void ApplyPattern()
+        {
+            EnsurePattern();
+            ThemePattern.ApplyBlockOverlay(pattern, true);
         }
 
         public void SetAlpha(float alpha)
@@ -110,12 +123,30 @@ namespace BlockPuzzle.Pieces
                 body.color = color;
             }
 
+            if (pattern != null)
+            {
+                Color color = pattern.color;
+                color.a = ThemePattern.BlockOverlayAlpha * alpha;
+                pattern.color = color;
+            }
+
             if (highlight != null)
             {
                 Color color = highlight.color;
                 color.a = 0.55f * alpha;
                 highlight.color = color;
             }
+        }
+
+        private void EnsurePattern()
+        {
+            if (body == null)
+            {
+                body = GetComponent<Image>();
+            }
+
+            ThemePattern.EnsureRoundedMask(gameObject);
+            pattern = ThemePattern.EnsureChild(transform, ThemePattern.BlockChildName, 0);
         }
     }
 }

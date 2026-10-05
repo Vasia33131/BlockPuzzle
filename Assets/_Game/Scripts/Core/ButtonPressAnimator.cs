@@ -24,6 +24,7 @@ namespace BlockPuzzle.Core
         private Vector3 restScale = Vector3.one;
         private bool pointerDown;
         private bool visuallyPressed;
+        private float settleTime;
 
         /// <summary>Adds the animator when it is missing, so every creation path can share one call.</summary>
         public static ButtonPressAnimator Attach(Component host)
@@ -55,12 +56,41 @@ namespace BlockPuzzle.Core
         private void Awake()
         {
             button = GetComponent<Button>();
+            if (button != null)
+            {
+                button.onClick.AddListener(PlayClickSound);
+            }
+
             restScale = transform.localScale;
             if (restScale.sqrMagnitude < 0.0001f)
             {
                 restScale = Vector3.one;
             }
         }
+
+        /// <summary>
+        /// Changes the scale the button rests at (a looping pulse drives this every frame). The press squash
+        /// and the spring back are relative to it, and it is not written to the transform mid-animation.
+        /// </summary>
+        public void SetRestScale(Vector3 scale)
+        {
+            restScale = scale;
+            if (!visuallyPressed && Time.unscaledTime >= settleTime)
+            {
+                transform.localScale = scale;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (button != null)
+            {
+                button.onClick.RemoveListener(PlayClickSound);
+            }
+        }
+
+        /// <summary>Every button in the game clicks through this one hook, so no screen wires it separately.</summary>
+        private static void PlayClickSound() => SfxHub.Play(SfxId.UiClick);
 
         private void OnDisable()
         {
@@ -114,6 +144,7 @@ namespace BlockPuzzle.Core
             }
 
             visuallyPressed = pressed;
+            settleTime = Time.unscaledTime + (pressed ? PressDuration : ReleaseDuration);
             GameTween.Kill(transform);
             GameTween.Scale(
                 transform,

@@ -21,19 +21,28 @@ namespace BlockPuzzle.UI
         private const float LayoutSettleDelay = 0.1f;
 
         private const float PortraitTopMargin = 12f;
-        private const float PortraitTopHeight = 84f;
+        private const float PortraitTopHeight = 180f;
         private const float PortraitSideMargin = 16f;
-        private const float PortraitPauseSize = 56f;
+        private const float PortraitPauseSize = 140f;
 
         private const float LandscapeTopMargin = 8f;
-        private const float LandscapeTopHeight = 72f;
+        private const float LandscapeTopHeight = 168f;
         private const float LandscapeSideMargin = 12f;
-        private const float LandscapePauseSize = 48f;
+        private const float LandscapePauseSize = 140f;
 
-        private const float ScoreSectionWidth = 320f;
-        private const float BestSectionWidth = 280f;
-        private const float SectionSidePadding = 20f;
+        private const float SectionSidePadding = 12f;
+        private const float SectionGap = 20f;
+        private const float ScoreRowHeight = 92f;
+        private const float BestRowHeight = 60f;
+        private const float BestRowTop = 4f + ScoreRowHeight + 8f;
+        private const float ScoreFontMax = 76f;
+        private const float ScoreFontMin = 44f;
+        private const float BestFontMax = 44f;
+        private const float BestFontMin = 34f;
+        private const float CrownSize = 48f;
+        private const float CrownGap = 14f;
         private const float PauseRightPadding = 15f;
+        private const float HudButtonGap = 40f;
 
         [Header("UI Панели")]
         [SerializeField] private RectTransform safeArea;
@@ -41,6 +50,7 @@ namespace BlockPuzzle.UI
         [SerializeField] private RectTransform spawnArea;
         [SerializeField] private RectTransform topPanel;
         [SerializeField] private RectTransform pauseButton;
+        [SerializeField] private RectTransform shopButton;
 
         [Header("Настройки размеров")]
         [SerializeField] private float portraitCellSize = 65f;
@@ -48,6 +58,9 @@ namespace BlockPuzzle.UI
         [SerializeField] private float spawnAreaHeightPortrait = 140f;
         [SerializeField] private float spawnAreaHeightLandscape = 120f;
         [SerializeField] private bool useDynamicBoardFit = true;
+
+        /// <summary>Raised after the layout was recomputed for portrait (true) or landscape (false), so full-screen views can follow.</summary>
+        public static event System.Action<bool> LayoutApplied;
 
         private ScreenOrientation lastOrientation;
         private Vector2Int lastResolution;
@@ -90,7 +103,8 @@ namespace BlockPuzzle.UI
             RectTransform spawnAreaRect,
             RectTransform pauseButtonRect,
             GridManager grid,
-            ShapeSpawner spawner)
+            ShapeSpawner spawner,
+            RectTransform shopButtonRect = null)
         {
             canvasScaler = scaler;
             safeArea = safeAreaRect;
@@ -98,6 +112,7 @@ namespace BlockPuzzle.UI
             gridArea = gridAreaRect;
             spawnArea = spawnAreaRect;
             pauseButton = pauseButtonRect;
+            shopButton = shopButtonRect;
             gridManager = grid;
             shapeSpawner = spawner;
         }
@@ -183,6 +198,7 @@ namespace BlockPuzzle.UI
             ApplyTopPanel(isPortrait);
             Canvas.ForceUpdateCanvases();
             ApplyPauseButton(isPortrait);
+            ApplyShopButton(isPortrait);
             ApplyHudSections(isPortrait);
 
             Canvas.ForceUpdateCanvases();
@@ -206,10 +222,7 @@ namespace BlockPuzzle.UI
             lastOrientation = Screen.orientation;
             lastResolution = new Vector2Int(Screen.width, Screen.height);
             lastPortrait = isPortrait;
-
-            Debug.Log(
-                $"[OrientationHandler] Layout updated: {(isPortrait ? "Portrait" : "Landscape")} " +
-                $"{Screen.width}x{Screen.height}");
+            LayoutApplied?.Invoke(isPortrait);
         }
 
         private void ApplyCanvasScaler(bool isPortrait)
@@ -277,6 +290,41 @@ namespace BlockPuzzle.UI
             ScalePauseBars(pauseButton, size);
         }
 
+        private void ApplyShopButton(bool isPortrait)
+        {
+            if (shopButton == null)
+            {
+                return;
+            }
+
+            float size = isPortrait ? PortraitPauseSize : LandscapePauseSize;
+            Transform parent = shopButton.parent;
+            bool insideTopPanel = topPanel != null && parent == topPanel;
+            float pauseSize = pauseButton != null ? pauseButton.sizeDelta.x : size;
+            HudShopButton hudShop = shopButton.GetComponent<HudShopButton>();
+            float shopWidth = hudShop != null ? hudShop.DesiredWidth : HudShopButton.MinWidth;
+
+            if (insideTopPanel)
+            {
+                shopButton.anchorMin = new Vector2(1f, 0.5f);
+                shopButton.anchorMax = new Vector2(1f, 0.5f);
+                shopButton.pivot = new Vector2(1f, 0.5f);
+                shopButton.anchoredPosition = new Vector2(-(PauseRightPadding + pauseSize + HudButtonGap), 0f);
+            }
+            else
+            {
+                float top = isPortrait ? PortraitTopMargin : LandscapeTopMargin;
+                float side = isPortrait ? PortraitSideMargin : LandscapeSideMargin;
+                shopButton.anchorMin = new Vector2(1f, 1f);
+                shopButton.anchorMax = new Vector2(1f, 1f);
+                shopButton.pivot = new Vector2(1f, 1f);
+                shopButton.anchoredPosition = new Vector2(-(side + pauseSize + HudButtonGap), -top);
+            }
+
+            shopButton.sizeDelta = new Vector2(shopWidth, HudShopButton.Height);
+            hudShop?.Layout(shopWidth);
+        }
+
         private void ApplyHudSections(bool isPortrait)
         {
             if (topPanel == null)
@@ -284,9 +332,16 @@ namespace BlockPuzzle.UI
                 return;
             }
 
-            float height = isPortrait ? PortraitTopHeight : LandscapeTopHeight;
             float pauseSize = isPortrait ? PortraitPauseSize : LandscapePauseSize;
-            float rightReserved = PauseRightPadding + pauseSize;
+            float shopSize = 0f;
+            float shopGap = 0f;
+            if (shopButton != null)
+            {
+                shopSize = shopButton.sizeDelta.x;
+                shopGap = HudButtonGap;
+            }
+
+            float rightReserved = PauseRightPadding + pauseSize + shopGap + shopSize;
 
             // Remove a leftover HUD mute control if an older bake still has it.
             Transform leftoverSound = topPanel.Find("SoundToggle");
@@ -298,28 +353,56 @@ namespace BlockPuzzle.UI
             RectTransform score = FindHudSection(topPanel, "ScoreSection", "ScoreGroup");
             RectTransform best = FindHudSection(topPanel, "BestSection", "BestGroup");
 
+            // Left column takes everything the right-hand controls leave free.
+            float columnWidth = Mathf.Max(200f, topPanel.rect.width - rightReserved - SectionSidePadding - SectionGap);
+
             if (score != null)
             {
                 UIFactory.Anchor(
                     score,
-                    new Vector2(0f, 0.5f),
-                    new Vector2(0f, 0.5f),
-                    new Vector2(SectionSidePadding, 0f),
-                    new Vector2(ScoreSectionWidth, height));
-                CompactLegacyScoreBlock(score, TextAlignmentOptions.MidlineLeft);
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(SectionSidePadding, -4f),
+                    new Vector2(columnWidth, ScoreRowHeight));
+                CompactLegacyScoreBlock(score, TextAlignmentOptions.MidlineLeft, ScoreFontMax, ScoreFontMin);
             }
 
             if (best != null)
             {
-                // Keep Best clear of the right controls on narrow canvases.
-                float bestWidth = Mathf.Min(BestSectionWidth, Mathf.Max(160f, topPanel.rect.width - rightReserved - ScoreSectionWidth));
                 UIFactory.Anchor(
                     best,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    Vector2.zero,
-                    new Vector2(bestWidth, height));
-                CompactLegacyScoreBlock(best, TextAlignmentOptions.Center);
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(SectionSidePadding, -BestRowTop),
+                    new Vector2(columnWidth, BestRowHeight));
+                CompactLegacyScoreBlock(best, TextAlignmentOptions.MidlineLeft, BestFontMax, BestFontMin);
+                LayoutBestCrown(best);
+            }
+        }
+
+        /// <summary>Crown at the left edge of the record row; the number starts after it.</summary>
+        private static void LayoutBestCrown(RectTransform best)
+        {
+            RectTransform crown = HudController.EnsureCrown(best);
+            if (crown == null)
+            {
+                return;
+            }
+
+            UIFactory.Anchor(
+                crown,
+                new Vector2(0f, 0.5f),
+                new Vector2(0f, 0.5f),
+                Vector2.zero,
+                new Vector2(CrownSize, CrownSize));
+
+            for (int i = 0; i < best.childCount; i++)
+            {
+                var child = best.GetChild(i) as RectTransform;
+                if (child != null && child != crown && child.GetComponent<TMP_Text>() != null)
+                {
+                    child.offsetMin = new Vector2(CrownSize + CrownGap, 0f);
+                }
             }
         }
 
@@ -342,9 +425,19 @@ namespace BlockPuzzle.UI
                 pauseButton.SetParent(topPanel, false);
             }
 
+            if (shopButton != null && shopButton.parent == safeArea)
+            {
+                shopButton.SetParent(topPanel, false);
+            }
+
             if (pauseButton == null)
             {
                 pauseButton = topPanel.Find("PauseButton") as RectTransform;
+            }
+
+            if (shopButton == null)
+            {
+                shopButton = topPanel.Find("ShopButton") as RectTransform;
             }
 
             // Hide obsolete caption rows when we still have Label + Value groups.
@@ -374,7 +467,8 @@ namespace BlockPuzzle.UI
             }
         }
 
-        private static void CompactLegacyScoreBlock(RectTransform section, TextAlignmentOptions alignment)
+        private static void CompactLegacyScoreBlock(
+            RectTransform section, TextAlignmentOptions alignment, float fontMax, float fontMin)
         {
             if (section == null)
             {
@@ -389,7 +483,7 @@ namespace BlockPuzzle.UI
                     continue;
                 }
 
-                if (child.name.EndsWith("Label"))
+                if (child.name.EndsWith("Label") || child.name == HudController.CrownName)
                 {
                     continue;
                 }
@@ -400,20 +494,19 @@ namespace BlockPuzzle.UI
                 {
                     text.alignment = alignment;
                     text.enableWordWrapping = false;
-                    text.overflowMode = TextOverflowModes.Ellipsis;
-                    if (text.fontSize > 40f)
-                    {
-                        text.fontSize = 36f;
-                    }
+                    text.overflowMode = TextOverflowModes.Overflow;
+                    text.enableAutoSizing = true;
+                    text.fontSizeMin = fontMin;
+                    text.fontSizeMax = fontMax;
                 }
             }
         }
 
         private static void ScalePauseBars(RectTransform pause, float size)
         {
-            float barWidth = Mathf.Max(5f, size * 0.125f);
-            float barHeight = Mathf.Max(16f, size * 0.43f);
-            float offset = Mathf.Max(5f, size * 0.125f);
+            float barWidth = Mathf.Max(12f, size * 0.17f);
+            float barHeight = Mathf.Max(30f, size * 0.56f);
+            float offset = Mathf.Max(12f, size * 0.19f);
 
             for (int i = 0; i < 2; i++)
             {
@@ -441,13 +534,33 @@ namespace BlockPuzzle.UI
             float cellSize = isPortrait ? portraitCellSize : landscapeCellSize;
             float spawnHeight = isPortrait ? spawnAreaHeightPortrait : spawnAreaHeightLandscape;
 
+            float bannerReserve = GameTheme.ActiveBannerReserve;
+
             if (spawnArea != null)
             {
-                spawnArea.anchorMin = new Vector2(0f, 0f);
-                spawnArea.anchorMax = new Vector2(1f, 0f);
                 spawnArea.pivot = new Vector2(0.5f, 0f);
-                spawnArea.anchoredPosition = new Vector2(0f, isPortrait ? 20f : 10f);
-                spawnArea.sizeDelta = new Vector2(0f, spawnHeight);
+                spawnArea.anchoredPosition = new Vector2(0f, (isPortrait ? 20f : 10f) + bannerReserve);
+
+                if (isPortrait)
+                {
+                    spawnArea.anchorMin = new Vector2(0f, 0f);
+                    spawnArea.anchorMax = new Vector2(1f, 0f);
+                    spawnArea.sizeDelta = new Vector2(0f, spawnHeight);
+                }
+                else
+                {
+                    float trayWidth = cellSize * 8f;
+                    spawnArea.anchorMin = new Vector2(0.5f, 0f);
+                    spawnArea.anchorMax = new Vector2(0.5f, 0f);
+                    spawnArea.sizeDelta = new Vector2(trayWidth, spawnHeight);
+                }
+            }
+
+            RectTransform booster = safeArea != null ? safeArea.Find("BoosterBar") as RectTransform : null;
+            float boosterReserved = 0f;
+            if (booster != null)
+            {
+                boosterReserved = BoosterBar.BarHeight + BoosterBar.TrayGap + BoosterBar.BoardGap;
             }
 
             if (gridArea != null)
@@ -460,9 +573,23 @@ namespace BlockPuzzle.UI
                 gridArea.sizeDelta = new Vector2(gridPixelSize, gridPixelSize);
 
                 float topHeight = isPortrait ? 90f : 65f;
-                float bottomHeight = isPortrait ? 160f : 130f;
+                float bottomHeight = (isPortrait ? 160f : 130f) + bannerReserve + boosterReserved;
                 float offsetY = (bottomHeight - topHeight) / 2f;
                 gridArea.anchoredPosition = new Vector2(0f, offsetY);
+
+                if (booster != null)
+                {
+                    booster.anchorMin = new Vector2(0f, 0f);
+                    booster.anchorMax = new Vector2(1f, 0f);
+                    booster.pivot = new Vector2(0.5f, 0f);
+                    float spawnBottom = (isPortrait ? 20f : 10f) + bannerReserve;
+                    float minY = spawnBottom + spawnHeight + BoosterBar.TrayGap;
+                    float safeHeight = safeArea != null ? Mathf.Max(1f, safeArea.rect.height) : GameTheme.ReferenceHeight;
+                    float gridBottom = safeHeight * 0.5f + offsetY - gridPixelSize * 0.5f;
+                    float desiredY = gridBottom - BoosterBar.BoardGap - BoosterBar.BarHeight;
+                    booster.anchoredPosition = new Vector2(0f, Mathf.Max(minY, desiredY));
+                    booster.sizeDelta = new Vector2(0f, BoosterBar.BarHeight);
+                }
             }
 
             if (gridManager != null)
@@ -540,6 +667,16 @@ namespace BlockPuzzle.UI
                 if (pauseButton == null)
                 {
                     pauseButton = safeArea.Find("PauseButton") as RectTransform;
+                }
+
+                if (shopButton == null && topPanel != null)
+                {
+                    shopButton = topPanel.Find("ShopButton") as RectTransform;
+                }
+
+                if (shopButton == null)
+                {
+                    shopButton = safeArea.Find("ShopButton") as RectTransform;
                 }
 
                 if (gridArea == null)

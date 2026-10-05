@@ -25,7 +25,7 @@ namespace BlockPuzzle.EditorTools
         /// pause button or effect layer would never reach a project that already has a scene
         /// on disk — this stamp is what tells the setup to bake it again.
         /// </summary>
-        public const int SceneVersion = 9;
+        public const int SceneVersion = 18;
 
         private static string VersionKey => $"BlockPuzzle.SceneVersion.{Application.dataPath.GetHashCode():X}";
 
@@ -84,9 +84,12 @@ namespace BlockPuzzle.EditorTools
         public static void BuildGameScene()
         {
             RoundedSpriteGenerator.EnsureAsset();
+            PatternSpriteGenerator.EnsureAssets();
+            MontserratFontGenerator.EnsureFonts();
             UIFactory.ClearCache();
 
             ShapeLibrary library = ShapeLibraryGenerator.EnsureAsset();
+            ThemeConfigGenerator.EnsureAssets();
             PrefabGenerator.RegenerateOverlayPanels();
             PrefabGenerator.PrefabAssets prefabs = PrefabGenerator.EnsureAll();
 
@@ -98,6 +101,7 @@ namespace BlockPuzzle.EditorTools
                 BlockPiece = prefabs.BlockPiece,
                 GameOverPanel = prefabs.GameOverPanel,
                 PausePanel = prefabs.PausePanel,
+                ShopPanel = prefabs.ShopPanel,
                 Spark = prefabs.Spark
             };
 

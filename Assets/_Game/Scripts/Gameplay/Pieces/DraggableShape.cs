@@ -41,6 +41,7 @@ namespace BlockPuzzle.Pieces
 
         public BlockShape Shape => shape;
         public bool IsConsumed => consumed;
+        public bool IsDragging => dragging;
         public bool Interactable { get; set; } = true;
 
         private BlockPiece piecePrefab;
@@ -112,6 +113,7 @@ namespace BlockPuzzle.Pieces
             }
 
             dragging = true;
+            SfxHub.Play(SfxId.PiecePickup);
             GameTween.Kill(rect);
 
             if (dragLayer != null)
@@ -163,6 +165,7 @@ namespace BlockPuzzle.Pieces
                 }
             }
 
+            SfxHub.Play(SfxId.PieceInvalid);
             ReturnToSlot();
         }
 
@@ -193,6 +196,21 @@ namespace BlockPuzzle.Pieces
         {
             rect.localScale = Vector3.zero;
             GameTween.Scale(rect, Vector3.one * idleScale, SpawnDuration, TweenEase.OutBack, delay);
+        }
+
+        /// <summary>Repaints every cube from the live shape colour and the active theme pattern.</summary>
+        public void ApplyTheme()
+        {
+            if (consumed || shape == null)
+            {
+                return;
+            }
+
+            Color color = shape.Color;
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                pieces[i]?.SetColor(color);
+            }
         }
 
         /// <summary>Greys out the figure when it can no longer be placed anywhere.</summary>

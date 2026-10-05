@@ -20,8 +20,12 @@ namespace BlockPuzzle.Grid
         [SerializeField] private Image border;
         [SerializeField] private Image background;
         [SerializeField] private Image fill;
+        [SerializeField] private Image pattern;
 
+        private Image crystalIcon;
+        private Image markFrame;
         private bool isFilled;
+        private bool isMarked;
 
         public Vector2Int Coordinate => coordinate;
         public bool IsFilled => isFilled;
@@ -60,6 +64,7 @@ namespace BlockPuzzle.Grid
             view.fill.raycastTarget = false;
             UIFactory.Stretch(view.fill.rectTransform, 3f);
             view.fill.enabled = false;
+            view.EnsurePattern();
 
             view.Configure(coordinate, size, pitch);
             view.SetEmpty();
@@ -79,6 +84,7 @@ namespace BlockPuzzle.Grid
                 value.x * pitch + size * 0.5f,
                 -(value.y * pitch + size * 0.5f));
             rect.localScale = Vector3.one;
+            EnsurePattern();
         }
 
         public void SetCoordinate(Vector2Int value) => coordinate = value;
@@ -90,11 +96,24 @@ namespace BlockPuzzle.Grid
             ApplyVisual(false, Color.clear);
         }
 
-        public void SetFilled(Color color)
+        /// <summary>Paints the empty-cell layer from the active theme without touching a filled block.</summary>
+        public void RefreshEmptyColor()
+        {
+            if (background != null)
+            {
+                background.color = GameTheme.EmptyCell;
+            }
+        }
+
+        /// <summary>
+        /// Fills the cell. A level block may carry a crystal icon or the frame of a marked
+        /// goal cell on top; both go away with the block.
+        /// </summary>
+        public void SetFilled(Color color, bool crystal = false, bool marked = false)
         {
             CancelAnimations();
             isFilled = true;
-            ApplyVisual(true, color);
+            ApplyVisual(true, color, crystal, marked);
         }
 
         /// <summary>Fills the cell and gives it a short pop, used when the player drops a figure.</summary>
@@ -127,10 +146,24 @@ namespace BlockPuzzle.Grid
             }
 
             CancelAnimations();
+            EnsurePattern();
+
+            // A collected crystal flies to the goal counter as its own object.
+            ApplyExtras(false, false);
 
             fill.enabled = true;
             fill.color = Color.white;
             fill.rectTransform.localScale = Vector3.one;
+
+            if (pattern != null)
+            {
+                pattern.enabled = pattern.sprite != null;
+                GameTween.Tint(
+                    pattern,
+                    GameTheme.WithAlpha(ThemePattern.BlockOverlayTint, 0f),
+                    ClearDuration,
+                    TweenEase.InQuad);
+            }
 
             GameTween.Tint(fill, GameTheme.WithAlpha(color, 0f), ClearDuration, TweenEase.InQuad, onComplete: SetEmpty);
             GameTween.Scale(fill.rectTransform, Vector3.one * 0.35f, ClearDuration, TweenEase.InQuad);
@@ -139,17 +172,27 @@ namespace BlockPuzzle.Grid
         /// <summary>Stops any animation in flight so the cell can be reused immediately.</summary>
         public void CancelAnimations()
         {
-            if (fill == null)
+            if (fill != null)
             {
-                return;
+                GameTween.Kill(fill);
+                GameTween.Kill(fill.rectTransform);
             }
 
-            GameTween.Kill(fill);
-            GameTween.Kill(fill.rectTransform);
+            if (pattern != null)
+            {
+                GameTween.Kill(pattern);
+            }
         }
 
-        private void ApplyVisual(bool showFill, Color color)
+        private void ApplyVisual(bool showFill, Color color, bool crystal = false, bool marked = false)
         {
+            if (background != null)
+            {
+                background.color = GameTheme.EmptyCell;
+            }
+
+            ApplyExtras(showFill && crystal, showFill && marked);
+
             if (fill == null)
             {
                 return;
@@ -159,11 +202,104 @@ namespace BlockPuzzle.Grid
             fill.color = color;
             fill.rectTransform.localScale = Vector3.one;
             transform.localScale = Vector3.one;
+            EnsurePattern();
+            ThemePattern.ApplyBlockOverlay(pattern, showFill);
+        }
+
+        /// <summary>
+        /// Shows or hides the crystal icon and the goal frame. The two objects are built the first
+        /// time a level needs them, so the endless mode never pays for them.
+        /// </summary>
+        private void ApplyExtras(bool showCrystal, bool showMarked)
+        {
+            if (showCrystal)
+            {
+                if (crystalIcon == null)
+                {
+                    crystalIcon = CreateExtra("Crystal", LevelArt.CrystalSprite, Color.white, 0.2f);
+                }
+
+                crystalIcon.gameObject.SetActive(true);
+                crystalIcon.transform.SetAsLastSibling();
+            }
+            else if (crystalIcon != null)
+            {
+                crystalIcon.gameObject.SetActive(false);
+            }
+
+            if (showMarked)
+            {
+                if (markFrame == null)
+                {
+                    markFrame = CreateExtra("Mark", LevelArt.FrameSprite, LevelArt.MarkColor, 0f);
+                    markFrame.type = Image.Type.Sliced;
+                }
+
+                markFrame.gameObject.SetActive(true);
+            }
+            else if (markFrame != null)
+            {
+                markFrame.gameObject.SetActive(false);
+            }
+
+            // Only a marked cell needs the per-frame pulse.
+            isMarked = showMarked;
+            enabled = isMarked;
+        }
+
+        private Image CreateExtra(string objectName, Sprite sprite, Color color, float inset)
+        {
+            Image image = UIFactory.CreateImage(objectName, transform, color, rounded: false);
+            image.sprite = sprite;
+            image.preserveAspect = inset > 0f;
+            image.raycastTarget = false;
+
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = new Vector2(inset, inset);
+            rect.anchorMax = new Vector2(1f - inset, 1f - inset);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            return image;
+        }
+
+        /// <summary>Breathing of the goal frame; the component is enabled only while the cell is marked.</summary>
+        private void Update()
+        {
+            if (!isMarked || markFrame == null)
+            {
+                return;
+            }
+
+            float wave = Mathf.Sin(Time.unscaledTime * 4f) * 0.5f + 0.5f;
+            Color color = LevelArt.MarkColor;
+            color.a = Mathf.Lerp(0.55f, 1f, wave);
+            markFrame.color = color;
+        }
+
+        private void EnsurePattern()
+        {
+            if (fill == null)
+            {
+                Transform fillTransform = transform.Find("Fill");
+                if (fillTransform != null)
+                {
+                    fill = fillTransform.GetComponent<Image>();
+                }
+            }
+
+            if (fill == null)
+            {
+                return;
+            }
+
+            ApplyRoundedSprite(fill);
+            ThemePattern.EnsureRoundedMask(fill.gameObject);
+            pattern = ThemePattern.EnsureChild(fill.transform, ThemePattern.BlockChildName, 0);
         }
 
         private static void ApplyRoundedSprite(Image image)
         {
-            if (UIFactory.RoundedSprite == null)
+            if (image == null || UIFactory.RoundedSprite == null)
             {
                 return;
             }
