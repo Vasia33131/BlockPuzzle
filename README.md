@@ -1,3 +1,5 @@
-<img width="360" height="640" alt="5416118889323632675" src="https://github.com/user-attachments/assets/fb8bfa33-e44c-43ce-aeec-e48e1a09e3eb" />
-<img width="360" height="640" alt="5416118889323632674" src="https://github.com/user-attachments/assets/f86135e9-322f-4c5b-b850-f668745abd39" />
+<img width="360" height="640" alt="левел рус моб" src="https://github.com/user-attachments/assets/27ee46c6-9658-4926-8652-96337f87c496" />
+<img width="360" height="640" alt="игра рус моб" src="https://github.com/user-attachments/assets/10ee84db-f37b-4e31-a6fc-9077ec0a6e0a" />
+<img width="360" height="640" alt="меню рус мб" src="https://github.com/user-attachments/assets/cc025153-3f28-4fac-9961-b699888da61f" />
+
 
